@@ -66,14 +66,16 @@ p{margin:0}
 .answer p{margin:0 0 8px}
 .answer pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow-x:auto;font:13px/1.5 var(--mono);margin:6px 0 0}
 .answer ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
-.btn{flex:1 1 130px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:700 15px var(--body);padding:11px 12px;border-radius:9px;cursor:pointer;text-align:center;text-decoration:none}
+.btn{flex:0 0 auto;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:700 15px var(--body);padding:11px 12px;border-radius:9px;cursor:pointer;text-align:center;text-decoration:none}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn.good{border-color:var(--done);color:var(--done)}
 .btn.small{flex:0 0 auto;font-size:13px;padding:7px 10px}
 button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 select,input,textarea{font:15px var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 10px;min-width:0}
 textarea{width:100%;min-height:92px;resize:vertical}
-label.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);flex:1 1 140px}
+label.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);flex:0 0 auto}
+.row>label.field{flex:1 1 140px}
+.row>.btn:not(.small){flex:1 1 130px}
 .item{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;text-align:left;color:var(--ink);font:15px/1.35 var(--body);width:100%}
 .item .t{flex:1;min-width:0}
 .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto;background:var(--open)}
