@@ -10,67 +10,85 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<style>*,*::before,*::after{box-sizing:border-box}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 <title>Edwin's Interview Reps</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
 <style>
-/* Layout: one narrow column, a support queue. Each question is a ticket; answering it resolves the ticket. */
+/* Layout: one narrow column styled as a support queue. Practice questions are tickets; jobs and people are cases with statuses. */
+*,*::before,*::after{box-sizing:border-box}
 :root{
   --bg:#eef1f4; --panel:#ffffff; --ink:#15212b; --muted:#5b6b78; --line:#d5dce3;
   --accent:#0f6e74; --accent-ink:#ffffff; --open:#b4561b; --open-bg:#fbeadf; --done:#1d7a44; --done-bg:#e1f3e8;
+  --info:#2c5aa0; --info-bg:#e3ecf8;
   --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
   --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+@media (prefers-color-scheme: dark){:root{
   --bg:#0f161c; --panel:#18222b; --ink:#e7eef3; --muted:#9aabb8; --line:#2a3743;
-  --accent:#4fc1c6; --accent-ink:#06282a; --open:#f0a36b; --open-bg:#3a2518; --done:#6fd49a; --done-bg:#14301f; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#0f161c; --panel:#18222b; --ink:#e7eef3; --muted:#9aabb8; --line:#2a3743;
-  --accent:#4fc1c6; --accent-ink:#06282a; --open:#f0a36b; --open-bg:#3a2518; --done:#6fd49a; --done-bg:#14301f; color-scheme:dark}
-body{background:var(--bg);color:var(--ink);font:16px/1.55 var(--body)}
-.wrap{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:flex;flex-direction:column;gap:18px}
+  --accent:#4fc1c6; --accent-ink:#06282a; --open:#f0a36b; --open-bg:#3a2518; --done:#6fd49a; --done-bg:#14301f;
+  --info:#8fb4ee; --info-bg:#1a2a44; color-scheme:dark}}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--body)}
+.wrap{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:18px 48px;display:flex;flex-direction:column;gap:16px}
 header{display:flex;flex-direction:column;gap:4px}
 .eyebrow{font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-h1{font:800 clamp(28px,7vw,36px)/1.05 var(--display);margin:0;text-wrap:balance}
-.stats{display:flex;gap:10px;flex-wrap:wrap}
-.stat{flex:1 1 120px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-.stat b{display:block;font:600 24px/1.1 var(--display);font-variant-numeric:tabular-nums}
-.stat span{font-size:13px;color:var(--muted)}
-.tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px}
-.tabs button{flex:1;border:0;background:transparent;color:var(--muted);font:700 14px var(--body);padding:10px 6px;border-radius:7px;cursor:pointer}
+h1{font:800 clamp(26px,7vw,34px)/1.05 var(--display);margin:0;text-wrap:balance}
+h2{font:600 19px/1.25 var(--display);margin:4px 0 0;text-wrap:balance}
+h3{font:600 16px/1.3 var(--display);margin:0}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.tabs button{border:0;background:transparent;color:var(--muted);font:700 13px var(--body);padding:10px 2px;border-radius:7px;cursor:pointer;min-width:0}
 .tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
-.ticket{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
-.tmeta{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+section{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.spread{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.muted{color:var(--muted);font-size:14px;margin:0}
+p{margin:0}
 .tid{font:500 13px var(--mono);color:var(--muted)}
-.pill{font:700 12px var(--body);padding:3px 10px;border-radius:99px;letter-spacing:.02em}
+.pill{font:700 12px var(--body);padding:3px 10px;border-radius:99px;white-space:nowrap}
 .pill.open{background:var(--open-bg);color:var(--open)}
 .pill.done{background:var(--done-bg);color:var(--done)}
-.cat{font-size:13px;color:var(--muted)}
-.q{font:600 21px/1.3 var(--display);margin:0;text-wrap:balance}
-.hint{font-size:14px;color:var(--muted);margin:0}
-.answer{border-top:1px dashed var(--line);padding-top:12px;min-width:0}
+.pill.info{background:var(--info-bg);color:var(--info)}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat b{display:block;font:600 24px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--muted)}
+.check{display:flex;gap:10px;align-items:center;font-size:15px}
+.check .box{width:22px;height:22px;border-radius:6px;border:2px solid var(--line);display:grid;place-items:center;flex:0 0 auto;font:700 14px var(--body);color:var(--done)}
+.check.on .box{border-color:var(--done);background:var(--done-bg)}
+.nudge{border-left:4px solid var(--open);background:var(--open-bg);color:var(--ink);border-radius:8px;padding:10px 12px;font-size:15px}
+.q{font:600 20px/1.3 var(--display);margin:0;text-wrap:balance}
+.answer{border-top:1px dashed var(--line);padding-top:10px;min-width:0}
 .answer p{margin:0 0 8px}
 .answer pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow-x:auto;font:13px/1.5 var(--mono);margin:6px 0 0}
 .answer ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
-.row{display:flex;gap:8px;flex-wrap:wrap}
-.btn{flex:1 1 140px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:700 15px var(--body);padding:12px;border-radius:9px;cursor:pointer}
+.btn{flex:1 1 130px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:700 15px var(--body);padding:11px 12px;border-radius:9px;cursor:pointer;text-align:center;text-decoration:none}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn.good{border-color:var(--done);color:var(--done)}
-button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.list{display:flex;flex-direction:column;gap:8px}
+.btn.small{flex:0 0 auto;font-size:13px;padding:7px 10px}
+button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+select,input,textarea{font:15px var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 10px;min-width:0}
+textarea{width:100%;min-height:92px;resize:vertical}
+label.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);flex:1 1 140px}
 .item{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;text-align:left;color:var(--ink);font:15px/1.35 var(--body);width:100%}
-.item .tid{flex:0 0 auto}
 .item .t{flex:1;min-width:0}
 .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto;background:var(--open)}
 .dot.done{background:var(--done)}
-.note{font-size:14px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
-.note b{color:var(--ink)}
-h2{font:600 18px var(--display);margin:6px 0 0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.timer{font:600 32px var(--mono);font-variant-numeric:tabular-nums;text-align:center}
+audio{width:100%}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font:700 14px var(--body);z-index:20}
+.score{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.score div{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 4px}
+.score b{display:block;font:600 22px var(--display);font-variant-numeric:tabular-nums}
+.score span{font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
 </style>
-
 </head>
 <body>
 <div class="wrap">
@@ -79,28 +97,21 @@ h2{font:600 18px var(--display);margin:6px 0 0}
     <h1>Edwin's Interview Reps</h1>
   </header>
 
-  <div class="stats" aria-label="Progress">
-    <div class="stat"><b id="sDone">0 / 26</b><span>tickets resolved</span></div>
-    <div class="stat"><b id="sStreak">0 days</b><span>practice streak</span></div>
-  </div>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" data-tab="today" aria-selected="true">Today</button>
+    <button role="tab" data-tab="jobs" aria-selected="false">Jobs</button>
+    <button role="tab" data-tab="people" aria-selected="false">People</button>
+    <button role="tab" data-tab="practice" aria-selected="false">Practice</button>
+    <button role="tab" data-tab="week" aria-selected="false">Week</button>
+  </nav>
 
-  <div class="tabs" role="tablist">
-    <button role="tab" id="tabToday" aria-selected="true">Today</button>
-    <button role="tab" id="tabQueue" aria-selected="false">Queue</button>
-    <button role="tab" id="tabHow" aria-selected="false">How to</button>
-  </div>
-
-  <section id="viewToday"></section>
-  <section id="viewQueue" hidden></section>
-  <section id="viewHow" hidden>
-    <div class="list">
-      <div class="note"><b>One ticket a day on workdays.</b> Read the question, answer it out loud like you're in the interview, then tap Show answer and compare. That's 15 minutes.</div>
-      <div class="note"><b>On days off, clear a category.</b> Open the Queue and work through one group, or tell all six stories with a timer. Each story should fit in 90 seconds.</div>
-      <div class="note"><b>Put it on your home screen.</b> iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open it in Chrome, tap the ⋮ menu, then Add to Home screen.</div>
-      <div class="note"><b>Your progress stays on this phone.</b> Resolved tickets and your streak are saved in this browser only, so use the same phone and browser each time.</div>
-    </div>
-  </section>
+  <section id="today"></section>
+  <section id="jobs" hidden></section>
+  <section id="people" hidden></section>
+  <section id="practice" hidden></section>
+  <section id="week" hidden></section>
 </div>
+<div class="toast" id="toast" hidden></div>
 
 <script>
 const T=[
@@ -131,47 +142,265 @@ const T=[
  ["Your stories","Tell story 5: The live-site bug (NIA Entertainment).","<ul><li><b>S:</b> A user reported a bug on the live site.</li><li><b>T:</b> Fix it without breaking anything else.</li><li><b>A:</b> Reproduced it, found the cause, tested the fix before release, documented it.</li><li><b>R:</b> Use the real outcome: how fast, and that it didn't come back.</li></ul>"],
  ["Your stories","Tell story 6: Working on the nerves.","<ul><li><b>S:</b> Skills were solid, but live calls made you nervous.</li><li><b>T:</b> Get genuinely comfortable talking live.</li><li><b>A:</b> Technical Sales Training (General Assembly & Adobe), and daily calls on purpose.</li><li><b>R:</b> Calls feel normal now. You can think while you talk.</li></ul>"]
 ];
-const KEY="edwin-reps-v1";
-function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}}
-function save(s){try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){}}
-let S=load(); S.done=S.done||{}; S.days=S.days||[];
-const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
-const tid=i=>"TKT-"+String(101+i);
-function streak(){const set=new Set(S.days);let n=0;const d=new Date();if(!set.has(today()))d.setDate(d.getDate()-1);
-  while(true){const k=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");if(set.has(k)){n++;d.setDate(d.getDate()-1)}else break}return n}
-function stats(){const n=Object.keys(S.done).length;document.getElementById("sDone").textContent=n+" / "+T.length;const st=streak();document.getElementById("sStreak").textContent=st+(st===1?" day":" days")}
-function dailyIndex(){const open=T.map((_,i)=>i).filter(i=>!S.done[i]);const pool=open.length?open:T.map((_,i)=>i);
-  const d=today().split("-").join("");let h=0;for(const c of d)h=(h*31+c.charCodeAt(0))%9973;return pool[h%pool.length]}
-let current=null;
-function ticket(i,showAll){
-  const done=!!S.done[i];const [cat,q,a]=T[i];
-  return `<article class="ticket"><div class="tmeta"><span class="tid">${tid(i)} · <span class="cat">${cat}</span></span><span class="pill ${done?"done":"open"}">${done?"Resolved":"Open"}</span></div>
-  <h2 class="q">${q}</h2><p class="hint">Answer out loud first, like you're in the interview.</p>
-  <div class="answer" id="ans" hidden>${a}</div>
-  <div class="row" id="acts"><button class="btn primary" id="reveal">Show answer</button></div></article>`}
-function bindTicket(i,host,after){
-  host.querySelector("#reveal").onclick=()=>{host.querySelector("#ans").hidden=false;
-    host.querySelector("#acts").innerHTML=`<button class="btn good" id="got">Got it</button><button class="btn" id="again">Practice again</button>`;
-    host.querySelector("#got").onclick=()=>{S.done[i]=1;mark();after()};
-    host.querySelector("#again").onclick=()=>{delete S.done[i];mark();after()}}}
-function mark(){if(!S.days.includes(today()))S.days.push(today());save(S);stats()}
-function renderToday(){const v=document.getElementById("viewToday");const i=dailyIndex();
-  v.innerHTML=`<div class="list">${ticket(i)}<div class="note"><b>Today's ticket.</b> It changes each day. Want more? Open the Queue.</div></div>`;
-  bindTicket(i,v,()=>renderToday())}
-function renderQueue(){const v=document.getElementById("viewQueue");
-  if(current!==null){v.innerHTML=`<div class="list">${ticket(current)}<button class="btn" id="back">Back to queue</button></div>`;
-    bindTicket(current,v,()=>{current=null;renderQueue()});v.querySelector("#back").onclick=()=>{current=null;renderQueue()};return}
-  let html="",last="";T.forEach((t,i)=>{if(t[0]!==last){html+=`<h2>${t[0]}</h2>`;last=t[0]}
-    html+=`<button class="item" data-i="${i}"><span class="dot ${S.done[i]?"done":""}"></span><span class="tid">${tid(i)}</span><span class="t">${t[1]}</span></button>`});
-  v.innerHTML=`<div class="list">${html}</div>`;
-  v.querySelectorAll(".item").forEach(b=>b.onclick=()=>{current=+b.dataset.i;renderQueue();window.scrollTo(0,0)})}
-const tabs={tabToday:"viewToday",tabQueue:"viewQueue",tabHow:"viewHow"};
-Object.keys(tabs).forEach(id=>document.getElementById(id).onclick=()=>{
-  Object.entries(tabs).forEach(([t,v])=>{document.getElementById(t).setAttribute("aria-selected",t===id);document.getElementById(v).hidden=t!==id});
-  if(id==="tabToday")renderToday();if(id==="tabQueue"){current=null;renderQueue()}});
-stats();renderToday();
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))}
-</script>
 
+/* ---------- storage ---------- */
+const KEY="edwin-reps-v1", KEY2="edwin-tracker-v1";
+function load(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+let S=load(KEY,{}); S.done=S.done||{}; S.days=S.days||[];
+let D=load(KEY2,{}); D.jobs=D.jobs||{}; D.people=D.people||[]; D.events=D.events||[]; D.custom=D.custom||[]; D.remind=D.remind||{time:"07:30",days:"work"};
+const saveS=()=>save(KEY,S), saveD=()=>save(KEY2,D);
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=t=>String(t==null?"":t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad=n=>String(n).padStart(2,"0");
+const dkey=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const today=()=>dkey(new Date());
+const daysSince=iso=>{if(!iso)return null;const a=new Date(iso+"T00:00:00"),b=new Date(today()+"T00:00:00");return Math.round((b-a)/864e5)};
+const nice=iso=>iso?new Date(iso+"T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"}):"";
+function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2200)}
+async function copy(text){try{await navigator.clipboard.writeText(text);toast("Copied")}catch(e){const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Copied")}catch(_){toast("Select the text and copy it")}ta.remove()}}
+function logEvent(type,label){D.events.push({type,label,at:today()});saveD()}
+function markPracticed(){if(!S.days.includes(today()))S.days.push(today());saveS()}
+function streak(){const set=new Set(S.days);let n=0;const d=new Date();if(!set.has(today()))d.setDate(d.getDate()-1);while(set.has(dkey(d))){n++;d.setDate(d.getDate()-1)}return n}
+function weekStart(){const d=new Date();const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);return dkey(d)}
+
+/* ---------- jobs data (vetted list lives in jobs.json, status lives on this phone) ---------- */
+let JOBS=[];
+async function loadJobs(){try{const r=await fetch("/jobs.json",{cache:"no-store"});if(r.ok)JOBS=await r.json()}catch(e){}
+  JOBS=JOBS.concat(D.custom); renderAll()}
+const STAGES=["To apply","Applied","Replied","Interview","Offer","Passed"];
+const jstate=id=>D.jobs[id]||(D.jobs[id]={status:"To apply"});
+function setJobStatus(job,status){const st=jstate(job.id);const prev=st.status;st.status=status;
+  const map={Applied:"applied",Replied:"reply",Interview:"interview",Offer:"offer"};
+  if(map[status]&&prev!==status){st[map[status]+"At"]=today();logEvent(map[status],job.company)}
+  saveD();renderAll();toast(status==="Applied"?"Nice. Logged as applied today":"Updated")}
+function followUpsDue(){
+  const out=[];
+  JOBS.forEach(j=>{const s=jstate(j.id);if(s.status==="Applied"&&daysSince(s.appliedAt)>=7&&!s.followedUp)out.push({kind:"job",j,d:daysSince(s.appliedAt)})});
+  D.people.forEach(p=>{if(p.status==="Messaged"&&daysSince(p.messagedAt)>=5&&!p.followedUp)out.push({kind:"person",p,d:daysSince(p.messagedAt)})});
+  return out}
+
+/* ---------- TODAY ---------- */
+function dailyIndex(){const open=T.map((_,i)=>i).filter(i=>!S.done[i]);const pool=open.length?open:T.map((_,i)=>i);let h=0;for(const c of today())h=(h*31+c.charCodeAt(0))%9973;return pool[h%pool.length]}
+function renderToday(){
+  const v=$("#today");const didTicket=S.days.includes(today());const didApply=D.events.some(e=>e.type==="applied"&&e.at===today());
+  const lastApply=D.events.filter(e=>e.type==="applied").map(e=>e.at).sort().pop();const gap=daysSince(lastApply);
+  let nudge="";
+  if(lastApply==null)nudge=`<div class="nudge"><b>No applications logged yet.</b> Start with SpotMe on the Jobs tab. It's the strongest match.</div>`;
+  else if(gap>=3)nudge=`<div class="nudge"><b>${gap} days since your last application.</b> One today keeps the streak going.</div>`;
+  const fu=followUpsDue();
+  const fuHtml=fu.length?`<div class="card"><h3>Follow-ups due</h3>${fu.map(f=>f.kind==="job"
+    ?`<div class="spread"><span>${esc(f.j.company)} · applied ${f.d} days ago</span><button class="btn small" data-fu-job="${esc(f.j.id)}">Done</button></div>`
+    :`<div class="spread"><span>${esc(f.p.first)} ${esc(f.p.last)} · messaged ${f.d} days ago</span><button class="btn small" data-fu-person="${esc(f.p.id)}">Done</button></div>`).join("")}
+    <p class="muted">A short, friendly check-in is enough. Mark it done once you've sent it.</p></div>`:"";
+  const i=dailyIndex();
+  v.innerHTML=`${nudge}
+  <div class="card"><h3>Today's minimum</h3>
+    <div class="check ${didTicket?"on":""}"><span class="box">${didTicket?"✓":""}</span>Practice 1 ticket</div>
+    <div class="check ${didApply?"on":""}"><span class="box">${didApply?"✓":""}</span>Send 1 application</div>
+    <p class="muted">Tired day? This is all it takes. Anything more is a bonus.</p></div>
+  ${fuHtml}
+  <div class="stats"><div class="stat"><b>${Object.keys(S.done).length} / ${T.length}</b><span>tickets resolved</span></div><div class="stat"><b>${streak()} ${streak()===1?"day":"days"}</b><span>practice streak</span></div></div>
+  <div id="todayTicket"></div>
+  <div class="card"><h3>Phone reminders</h3><p class="muted">Adds a daily study reminder and a Saturday "send applications" reminder to your phone's calendar. Your calendar sends the notifications.</p>
+    <div class="row"><label class="field" for="rTime">Study reminder time<input type="time" id="rTime" value="${esc(D.remind.time)}"></label>
+    <label class="field" for="rDays">Days<select id="rDays"><option value="work"${D.remind.days==="work"?" selected":""}>Weekdays</option><option value="all"${D.remind.days==="all"?" selected":""}>Every day</option></select></label></div>
+    <button class="btn primary" id="ics">Add reminders to my calendar</button></div>`;
+  renderTicket(i,$("#todayTicket"),()=>renderToday());
+  v.querySelectorAll("[data-fu-job]").forEach(b=>b.onclick=()=>{jstate(b.dataset.fuJob).followedUp=today();saveD();renderAll();toast("Follow-up logged")});
+  v.querySelectorAll("[data-fu-person]").forEach(b=>b.onclick=()=>{const p=D.people.find(x=>x.id===b.dataset.fuPerson);if(p){p.followedUp=today();saveD();renderAll();toast("Follow-up logged")}});
+  $("#rTime").onchange=e=>{D.remind.time=e.target.value;saveD()};
+  $("#rDays").onchange=e=>{D.remind.days=e.target.value;saveD()};
+  $("#ics").onclick=downloadIcs;
+}
+
+/* ---------- tickets + recorder ---------- */
+function renderTicket(i,host,after){
+  const [cat,q,a]=T[i];const done=!!S.done[i];
+  host.innerHTML=`<article class="card"><div class="spread"><span class="tid">TKT-${101+i} · ${esc(cat)}</span><span class="pill ${done?"done":"open"}">${done?"Resolved":"Open"}</span></div>
+  <h2 class="q">${q}</h2><p class="muted">Answer out loud first, like you're in the interview.</p>
+  <div class="rec"><div class="row"><button class="btn" data-rec>Record my answer (90 sec)</button></div><div class="timer" data-timer hidden>1:30</div><div data-play></div></div>
+  <div class="answer" data-ans hidden>${a}</div>
+  <div class="row" data-acts><button class="btn primary" data-reveal>Show answer</button></div></article>`;
+  host.querySelector("[data-reveal]").onclick=()=>{host.querySelector("[data-ans]").hidden=false;
+    const acts=host.querySelector("[data-acts]");acts.innerHTML=`<button class="btn good" data-got>Got it</button><button class="btn" data-again>Practice again</button>`;
+    acts.querySelector("[data-got]").onclick=()=>{S.done[i]=1;markPracticed();after();toast("Ticket resolved")};
+    acts.querySelector("[data-again]").onclick=()=>{delete S.done[i];markPracticed();after();toast("Back in the queue")}};
+  setupRecorder(host.querySelector(".rec"));
+}
+let active=null;
+function setupRecorder(box){
+  const btn=box.querySelector("[data-rec]"),timer=box.querySelector("[data-timer]"),play=box.querySelector("[data-play]");
+  if(!(navigator.mediaDevices&&window.MediaRecorder)){btn.disabled=true;btn.textContent="Recording isn't supported in this browser";return}
+  btn.onclick=async()=>{
+    if(active&&active.box===box){active.stop();return}
+    let stream;try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}catch(e){toast("Allow microphone access to record");return}
+    const rec=new MediaRecorder(stream),chunks=[];let left=90,iv;
+    rec.ondataavailable=e=>chunks.push(e.data);
+    rec.onstop=()=>{clearInterval(iv);stream.getTracks().forEach(t=>t.stop());timer.hidden=true;btn.textContent="Record again";active=null;
+      const url=URL.createObjectURL(new Blob(chunks,{type:rec.mimeType||"audio/mp4"}));play.innerHTML=`<p class="muted">Play it back. Did you hit Situation, Task, Action, Result?</p><audio controls src="${url}"></audio>`};
+    active={box,stop:()=>{if(rec.state!=="inactive")rec.stop()}};
+    rec.start();timer.hidden=false;btn.textContent="Stop recording";play.innerHTML="";
+    const show=()=>timer.textContent=Math.floor(left/60)+":"+pad(left%60);show();
+    iv=setInterval(()=>{left--;show();if(left<=0)active&&active.stop()},1000)};
+}
+
+/* ---------- JOBS ---------- */
+let openJob=null;
+function peopleAt(company){const c=company.toLowerCase();return D.people.filter(p=>(p.company||"").toLowerCase().includes(c))}
+function renderJobs(){
+  const v=$("#jobs");
+  if(openJob){const j=JOBS.find(x=>x.id===openJob);if(j){renderJob(j,v);return}openJob=null}
+  const order=s=>({"Interview":0,"Offer":0,"Replied":1,"To apply":2,"Applied":3,"Passed":4})[s]??5;
+  const list=[...JOBS].sort((a,b)=>order(jstate(a.id).status)-order(jstate(b.id).status)||(b.match||0)-(a.match||0));
+  v.innerHTML=`<p class="muted">Vetted roles, best match first. Tap one for the details, your resume name, and people you know there.</p>`+
+  list.map(j=>{const s=jstate(j.id);const pk=s.status==="To apply"?"open":(s.status==="Passed"?"info":"done");const n=peopleAt(j.company).length;
+    return `<button class="item" data-job="${esc(j.id)}"><span class="t"><b>${esc(j.company)}</b> · ${esc(j.role)}<br><span class="muted">${j.match?esc(j.match)+"% match · ":""}${esc(j.pay||"")}${n?` · ${n} ${n===1?"contact":"contacts"}`:""}</span></span><span class="pill ${pk}">${esc(s.status)}</span></button>`}).join("")+
+  `<div class="card"><h3>Add a job you found</h3><div class="row"><label class="field" for="nCo">Company<input id="nCo"></label><label class="field" for="nRole">Role<input id="nRole"></label></div>
+  <label class="field" for="nUrl">Job link<input id="nUrl" inputmode="url"></label><button class="btn" id="addJob">Add job</button></div>`;
+  v.querySelectorAll("[data-job]").forEach(b=>b.onclick=()=>{openJob=b.dataset.job;renderJobs();window.scrollTo(0,0)});
+  $("#addJob").onclick=()=>{const co=$("#nCo").value.trim(),ro=$("#nRole").value.trim();if(!co||!ro){toast("Add a company and a role");return}
+    D.custom.push({id:"c"+Date.now(),company:co,role:ro,url:$("#nUrl").value.trim(),added:today(),custom:true});saveD();JOBS=JOBS.filter(j=>!j.custom).concat(D.custom);renderJobs();toast("Job added")};
+}
+function renderJob(j,v){
+  const s=jstate(j.id);const ppl=peopleAt(j.company);
+  const dates=[["Applied",s.appliedAt],["Replied",s.replyAt],["Interview",s.interviewAt],["Offer",s.offerAt]].filter(x=>x[1]).map(x=>`<dt>${x[0]}</dt><dd>${nice(x[1])}</dd>`).join("");
+  v.innerHTML=`<button class="btn" id="backJobs">Back to jobs</button>
+  <article class="card"><div class="spread"><span class="tid">${esc(j.company)}</span>${j.match?`<span class="pill info">${esc(j.match)}% match</span>`:""}</div>
+  <h2 class="q">${esc(j.role)}</h2>
+  <dl class="kv">${j.pay?`<dt>Pay</dt><dd>${esc(j.pay)}</dd>`:""}${j.where?`<dt>Where</dt><dd>${esc(j.where)}</dd>`:""}${j.resume?`<dt>Resume</dt><dd>${esc(j.resume)}</dd>`:""}${dates}</dl>
+  ${j.why?`<p><b>Why it fits:</b> ${esc(j.why)}</p>`:""}${j.watch?`<p><b>Watch out for:</b> ${esc(j.watch)}</p>`:""}
+  ${j.url?`<a class="btn primary" href="${esc(j.url)}" target="_blank" rel="noopener">Open the posting</a>`:""}
+  <label class="field" for="jStatus">Status<select id="jStatus">${STAGES.map(x=>`<option${x===s.status?" selected":""}>${x}</option>`).join("")}</select></label>
+  <label class="field" for="jNotes">Notes<textarea id="jNotes" placeholder="Recruiter name, interview date, what they asked...">${esc(s.notes||"")}</textarea></label></article>
+  <div class="card"><h3>People you know at ${esc(j.company)}</h3>${ppl.length?ppl.map(p=>`<div class="spread"><span>${esc(p.first)} ${esc(p.last)} · <span class="muted">${esc(p.position||"")}</span></span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>`).join(""):`<p class="muted">No one yet. Import your LinkedIn connections on the People tab, or add someone you find.</p>`}</div>`;
+  $("#backJobs").onclick=()=>{openJob=null;renderJobs()};
+  $("#jStatus").onchange=e=>setJobStatus(j,e.target.value);
+  $("#jNotes").onchange=e=>{s.notes=e.target.value;saveD();toast("Notes saved")};
+}
+
+/* ---------- PEOPLE ---------- */
+function parseCsv(text){const rows=[];let row=[],f="",q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){if(c==='"'){if(text[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c==='"')q=true;else if(c===","){row.push(f);f=""}else if(c==="\n"||c==="\r"){if(c==="\r"&&text[i+1]==="\n")i++;row.push(f);rows.push(row);row=[];f=""}else f+=c}
+  if(f||row.length){row.push(f);rows.push(row)}return rows}
+function importConnections(text){
+  const rows=parseCsv(text);const h=rows.findIndex(r=>r.some(c=>c.trim()==="First Name"));
+  if(h<0){toast("That file doesn't look like LinkedIn's Connections.csv");return}
+  const head=rows[h].map(c=>c.trim());const ix=n=>head.indexOf(n);
+  let added=0;const seen=new Set(D.people.map(p=>p.url||p.first+p.last+p.company));
+  rows.slice(h+1).forEach(r=>{const p={first:r[ix("First Name")]||"",last:r[ix("Last Name")]||"",url:r[ix("URL")]||"",company:r[ix("Company")]||"",position:r[ix("Position")]||"",status:"To message",source:"LinkedIn"};
+    if(!p.first&&!p.last)return;const k=p.url||p.first+p.last+p.company;if(seen.has(k))return;seen.add(k);p.id="p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);D.people.push(p);added++});
+  saveD();renderAll();toast(added+" connections imported")}
+function score(p){let s=0;const co=(p.company||"").toLowerCase(),pos=(p.position||"").toLowerCase();
+  if(JOBS.some(j=>co&&co.includes(j.company.toLowerCase())))s+=10;
+  if(/recruit|talent|sourc|hiring/.test(pos))s+=4;
+  if(/support|solution|implement|onboard|customer success|it |help ?desk|engineer/.test(pos))s+=2;return s}
+let peopleFilter="priority",openPerson=null;
+function renderPeople(){
+  const v=$("#people");
+  if(openPerson){const p=D.people.find(x=>x.id===openPerson);if(p){renderPerson(p,v);return}openPerson=null}
+  let list=[...D.people];
+  if(peopleFilter==="priority")list=list.filter(p=>score(p)>=10&&p.status!=="Referral");
+  if(peopleFilter==="active")list=list.filter(p=>p.status!=="To message");
+  list.sort((a,b)=>score(b)-score(a)||(a.last||"").localeCompare(b.last||""));
+  const shown=list.slice(0,60);
+  v.innerHTML=`${D.people.length?"":`<div class="card"><h3>Bring in your LinkedIn connections</h3>
+    <ol class="muted" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px"><li>On LinkedIn: Settings, then Data privacy, then Get a copy of your data.</li><li>Pick Connections and request it. LinkedIn emails a download link, usually within minutes.</li><li>Unzip it and choose Connections.csv below.</li></ol></div>`}
+  <div class="card"><div class="row"><label class="btn primary" for="csv" style="cursor:pointer">Import Connections.csv</label><input type="file" id="csv" accept=".csv,text/csv" hidden></div>
+  <p class="muted">Your contacts stay on this phone. They're never uploaded anywhere.</p></div>
+  <div class="row"><select id="pf" aria-label="Show"><option value="priority"${peopleFilter==="priority"?" selected":""}>At your target companies</option><option value="active"${peopleFilter==="active"?" selected":""}>Messaged or replied</option><option value="all"${peopleFilter==="all"?" selected":""}>Everyone</option></select></div>
+  ${shown.length?shown.map(p=>{const at=JOBS.find(j=>(p.company||"").toLowerCase().includes(j.company.toLowerCase()));
+    return `<button class="item" data-person="${esc(p.id)}"><span class="dot ${p.status==="To message"?"":"done"}"></span><span class="t"><b>${esc(p.first)} ${esc(p.last)}</b><br><span class="muted">${esc(p.position||"")}${p.company?" · "+esc(p.company):""}</span></span>${at?`<span class="pill info">${esc(at.company)}</span>`:""}</button>`}).join("")
+  :`<p class="muted">${D.people.length?"No one here yet. Try Everyone.":"No contacts yet."}</p>`}
+  ${list.length>60?`<p class="muted">Showing 60 of ${list.length}.</p>`:""}
+  <div class="card"><h3>Add someone you found</h3><div class="row"><label class="field" for="aFirst">First name<input id="aFirst"></label><label class="field" for="aLast">Last name<input id="aLast"></label></div>
+  <div class="row"><label class="field" for="aCo">Company<input id="aCo"></label><label class="field" for="aPos">Role<input id="aPos"></label></div>
+  <label class="field" for="aUrl">LinkedIn profile link<input id="aUrl" inputmode="url"></label><button class="btn" id="addP">Add person</button></div>`;
+  $("#csv").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>importConnections(String(r.result));r.readAsText(f)};
+  $("#pf").onchange=e=>{peopleFilter=e.target.value;renderPeople()};
+  v.querySelectorAll("[data-person]").forEach(b=>b.onclick=()=>{openPerson=b.dataset.person;renderPeople();window.scrollTo(0,0)});
+  $("#addP").onclick=()=>{const p={first:$("#aFirst").value.trim(),last:$("#aLast").value.trim(),company:$("#aCo").value.trim(),position:$("#aPos").value.trim(),url:$("#aUrl").value.trim(),status:"To message",source:"Added"};
+    if(!p.first){toast("Add at least a first name");return}p.id="p"+Date.now().toString(36);D.people.push(p);saveD();renderPeople();toast("Person added")};
+}
+function templates(p){
+  const j=JOBS.find(x=>(p.company||"").toLowerCase().includes(x.company.toLowerCase()));
+  const role=j?j.role:"a support engineering role",co=p.company||"your company";
+  const recruiter=/recruit|talent|sourc|hiring/i.test(p.position||"");
+  return [
+   ["Connection request (under 300 characters)",`Hi ${p.first}, I'm applying for the ${role} role at ${co}. My background is API support on Google Cloud at GE Aerospace plus 3 years of web development. I'd love to connect and learn a bit about the team.`],
+   [recruiter?"Message to a recruiter":"Message after they accept",recruiter
+     ?`Hi ${p.first}, thanks for connecting. I just applied for the ${role} role at ${co}. At GE Aerospace I resolved 15+ API tickets a week on Google Cloud Apigee and helped cut our backlog by 30%. If it would help, I'm happy to share more about my background. Is there anything you'd suggest I highlight?`
+     :`Hi ${p.first}, thanks for connecting. I'm applying for the ${role} role at ${co} and would love your take on the team. What do you enjoy most about working there? If you think I'd be a fit after hearing my background, I'd be grateful for a referral, but no pressure at all.`],
+   ["Follow-up (5 to 7 days later)",`Hi ${p.first}, just following up on my note about the ${role} role. No worries if you're busy. Any quick advice would mean a lot. Thanks either way!`]]}
+function renderPerson(p,v){
+  const st=["To message","Messaged","Replied","Referral"];
+  v.innerHTML=`<button class="btn" id="backP">Back to people</button>
+  <article class="card"><div class="spread"><span class="tid">${esc(p.company||"")}</span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>
+  <h2 class="q">${esc(p.first)} ${esc(p.last)}</h2><p class="muted">${esc(p.position||"")}</p>
+  ${p.url?`<a class="btn primary" href="${esc(p.url)}" target="_blank" rel="noopener">Open LinkedIn profile</a>`:""}
+  <label class="field" for="pStatus">Status<select id="pStatus">${st.map(x=>`<option${x===p.status?" selected":""}>${x}</option>`).join("")}</select></label></article>
+  ${templates(p).map((t,k)=>`<div class="card"><h3>${esc(t[0])}</h3><p data-tpl="${k}">${esc(t[1])}</p><button class="btn small" data-copy="${k}">Copy</button></div>`).join("")}
+  <p class="muted">Edit the message so it sounds like you before sending. You send every message yourself on LinkedIn.</p>
+  <button class="btn" id="delP">Remove this person</button>`;
+  const tp=templates(p);
+  $("#backP").onclick=()=>{openPerson=null;renderPeople()};
+  $("#pStatus").onchange=e=>{const s=e.target.value;if(s==="Messaged"&&p.status!=="Messaged")p.messagedAt=today();if(s==="Replied"&&!p.repliedAt){p.repliedAt=today();logEvent("reply",p.first+" "+p.last)}p.status=s;saveD();renderPerson(p,v);toast("Updated")};
+  v.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copy(tp[+b.dataset.copy][1]));
+  $("#delP").onclick=()=>{if(b2.dataset.armed){D.people=D.people.filter(x=>x.id!==p.id);saveD();openPerson=null;renderPeople();toast("Removed")}else{b2.dataset.armed=1;b2.textContent="Tap again to remove"}};
+  const b2=$("#delP");
+}
+
+/* ---------- PRACTICE ---------- */
+let current=null;
+function renderPractice(){const v=$("#practice");
+  if(current!==null){v.innerHTML=`<button class="btn" id="backQ">Back to queue</button><div id="pt"></div>`;renderTicket(current,$("#pt"),()=>renderPractice());$("#backQ").onclick=()=>{current=null;renderPractice()};return}
+  let html=`<p class="muted">Answer out loud, record yourself if you can, then compare. Stories should fit in 90 seconds.</p>`,last="";
+  T.forEach((t,i)=>{if(t[0]!==last){html+=`<h2>${esc(t[0])}</h2>`;last=t[0]}
+    html+=`<button class="item" data-i="${i}"><span class="dot ${S.done[i]?"done":""}"></span><span class="tid">TKT-${101+i}</span><span class="t">${esc(t[1])}</span></button>`});
+  v.innerHTML=html;v.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{current=+b.dataset.i;renderPractice();window.scrollTo(0,0)})}
+
+/* ---------- WEEK ---------- */
+function weekCounts(){const ws=weekStart();const ev=D.events.filter(e=>e.at>=ws);const c=t=>ev.filter(e=>e.type===t).length;return{a:c("applied"),r:c("reply"),i:c("interview"),o:c("offer")}}
+function renderWeek(){const v=$("#week");const w=weekCounts();const ws=weekStart();
+  const text=`Week of ${nice(ws)}\nApplications: ${w.a}\nRecruiter replies: ${w.r}\nInterviews: ${w.i}\nOffers: ${w.o}`;
+  const recent=[...D.events].reverse().slice(0,12);
+  const label={applied:"Applied",reply:"Reply",interview:"Interview",offer:"Offer"};
+  v.innerHTML=`<div class="card"><div class="spread"><h3>Scoreboard</h3><span class="tid">Week of ${nice(ws)}</span></div>
+  <div class="score"><div><b>${w.a}</b><span>Applications</span></div><div><b>${w.r}</b><span>Replies</span></div><div><b>${w.i}</b><span>Interviews</span></div><div><b>${w.o}</b><span>Offers</span></div></div>
+  <button class="btn primary" id="cpScore">Copy scoreboard</button></div>
+  <div class="card"><h3>Log something from outside the app</h3><p class="muted">Applied through LinkedIn Easy Apply, or a recruiter emailed? Log it so the scoreboard stays accurate.</p>
+  <div class="row"><button class="btn small" data-log="applied">+ Application</button><button class="btn small" data-log="reply">+ Reply</button><button class="btn small" data-log="interview">+ Interview</button><button class="btn small" data-log="offer">+ Offer</button></div></div>
+  <div class="card"><h3>Recent activity</h3>${recent.length?recent.map(e=>`<div class="spread"><span>${label[e.type]||e.type}${e.label?" · "+esc(e.label):""}</span><span class="tid">${nice(e.at)}</span></div>`).join(""):`<p class="muted">Nothing logged yet this week.</p>`}</div>`;
+  $("#cpScore").onclick=()=>copy(text);
+  v.querySelectorAll("[data-log]").forEach(b=>b.onclick=()=>{logEvent(b.dataset.log,"Logged");renderAll();toast("Logged")})}
+
+/* ---------- calendar reminders ---------- */
+function downloadIcs(){
+  const [hh,mm]=(D.remind.time||"07:30").split(":");const now=new Date();
+  const d=new Date();d.setDate(d.getDate()+1);const ds=d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate());
+  const sat=new Date();sat.setDate(sat.getDate()+((6-sat.getDay()+7)%7||7));const ss=sat.getFullYear()+pad(sat.getMonth()+1)+pad(sat.getDate());
+  const stamp=now.toISOString().replace(/[-:]/g,"").split(".")[0]+"Z";const url=location.origin;
+  const byday=D.remind.days==="all"?"":";BYDAY=MO,TU,WE,TH,FR";
+  const ev=(uid,start,rule,sum,desc,dur)=>["BEGIN:VEVENT","UID:"+uid+"@interview-reps","DTSTAMP:"+stamp,"DTSTART:"+start,"DURATION:"+dur,"RRULE:"+rule,"SUMMARY:"+sum,"DESCRIPTION:"+desc,"URL:"+url,"BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+sum,"TRIGGER:PT0M","END:VALARM","END:VEVENT"].join("\r\n");
+  const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Interview Reps//EN","CALSCALE:GREGORIAN",
+    ev("study-"+Date.now(),ds+"T"+hh+mm+"00","FREQ=DAILY"+byday,"15 min interview reps","One ticket, answered out loud. Open "+url,"PT15M"),
+    ev("apply-"+Date.now(),ss+"T100000","FREQ=WEEKLY;BYDAY=SA","Send this week's applications","Open the Jobs tab and send at least 3. "+url,"PT45M"),
+    "END:VCALENDAR"].join("\r\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([ics],{type:"text/calendar"}));a.download="interview-reps-reminders.ics";document.body.appendChild(a);a.click();a.remove();
+  toast("Open the file to add the reminders")}
+
+/* ---------- tabs ---------- */
+const views={today:renderToday,jobs:renderJobs,people:renderPeople,practice:renderPractice,week:renderWeek};
+let tab="today";
+function renderAll(){views[tab]()}
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));
+  Object.keys(views).forEach(k=>$("#"+k).hidden=k!==tab);if(tab==="jobs")openJob=null;if(tab==="people")openPerson=null;if(tab==="practice")current=null;renderAll();window.scrollTo(0,0)});
+renderToday();loadJobs();
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}))}
+</script>
 </body>
 </html>

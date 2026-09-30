@@ -1,0 +1,54 @@
+[
+  {
+    "id": "spotme-tse",
+    "company": "SpotMe",
+    "role": "Technical Support Engineer",
+    "match": 90,
+    "pay": "Not listed",
+    "where": "Remote, US (Eastern or Central hours)",
+    "url": "https://job-boards.greenhouse.io/spotme/jobs/7927352003",
+    "resume": "Edwin-Allen_SpotMe_Technical_Support_Engineer_Resume",
+    "why": "Your exact target title. No degree needed. Login and access troubleshooting, logs, engineering handoffs.",
+    "watch": "High-volume live chat. Shifts rotate 7 days, 7am to midnight Central. Six written questions on the application.",
+    "added": "2026-09-30"
+  },
+  {
+    "id": "1password-se",
+    "company": "1Password",
+    "role": "Solutions Engineer, SMB",
+    "match": 85,
+    "pay": "$75K to $105K + commission",
+    "where": "Remote, US",
+    "url": "https://builtin.com/job/solutions-engineer-smb/10742468",
+    "resume": "Edwin-Allen_1Password_Solutions_Engineer_Resume",
+    "why": "API credentials, secrets, OAuth and Google Cloud match your GE work. Uses your sales training.",
+    "watch": "Asks for 2+ years of customer-facing B2B software experience. Onboarding in Toronto, so you need a passport.",
+    "added": "2026-09-30"
+  },
+  {
+    "id": "zillow-it",
+    "company": "Zillow",
+    "role": "IT Support Specialist",
+    "match": 85,
+    "pay": "About $60K to $95K in NY + stock",
+    "where": "Remote, US (Eastern hours)",
+    "url": "https://zillow.wd5.myworkdayjobs.com/en-US/Zillow_Group_External/job/IT-Support-Specialist_P751346-2",
+    "resume": "Edwin-Allen_Zillow_IT_Support_Specialist_Resume",
+    "why": "High school diploma and 0 to 2 years required. Account access and troubleshooting match GE.",
+    "watch": "Internal IT, not customer support. Includes laptop setup and device work.",
+    "added": "2026-09-30"
+  },
+  {
+    "id": "xyzai-dev",
+    "company": "XYZ AI",
+    "role": "Full Stack Junior Developer",
+    "match": 80,
+    "pay": "$80K + equity",
+    "where": "Remote, US (Eastern preferred)",
+    "url": "https://www.xyzai.io/careers",
+    "resume": "Edwin-Allen_XYZ-AI_Full_Stack_Developer_Resume",
+    "why": "Hits $80K on day one. You know the stack: TypeScript, React, Tailwind, REST APIs.",
+    "watch": "Small startup. Expect a coding test. Look at their StealthGPT product before interviewing.",
+    "added": "2026-09-30"
+  }
+]
