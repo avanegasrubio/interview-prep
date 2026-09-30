@@ -176,7 +176,7 @@ const personFrom=r=>({id:r.id,user_id:r.user_id,first:r.first||"",last:r.last||"
 async function syncPerson(p){if(!sb||!ME)return;const {error}=await sb.from("people").upsert(personRow(p));fail(error)}
 async function syncPeopleBulk(list){if(!sb||!ME)return;for(let i=0;i<list.length;i+=400){const {error}=await sb.from("people").upsert(list.slice(i,i+400).map(personRow));if(error){fail(error);return}}}
 async function removePerson(id){if(!sb||!ME)return;const {error}=await sb.from("people").delete().eq("id",id);fail(error)}
-const jobFrom=r=>({id:r.id,company:r.company,role:r.role,match:r.match,pay:r.pay,where:r.location,url:r.url,resume:r.resume,why:r.why,watch:r.watch,added:r.added,custom:r.custom,active:r.active,kit:r.kit||[]});
+const jobFrom=r=>({id:r.id,company:r.company,role:r.role,match:r.match,pay:r.pay,where:r.location,url:r.url,resume:r.resume,why:r.why,watch:r.watch,added:r.added,custom:r.custom,active:r.active,kit:r.kit||[],linkedin:r.linkedin});
 
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
@@ -386,7 +386,7 @@ function renderJob(j,v){
   <label class="field" for="jStatus">Status<select id="jStatus">${STAGES.map(x=>`<option${x===s.status?" selected":""}>${x}</option>`).join("")}</select></label>
   <label class="field" for="jNotes">Notes<textarea id="jNotes" placeholder="Recruiter name, interview date, what they asked...">${esc(s.notes||"")}</textarea></label></article>
   ${EMAILS.filter(m=>m.job_id===j.id).length?`<h2>Emails about this job</h2>${EMAILS.filter(m=>m.job_id===j.id).map(m=>emailRow(m,false)).join("")}`:""}
-  <div class="card"><h3>People you know at ${esc(j.company)}</h3>${ppl.length?ppl.map(p=>`<div class="spread"><span>${esc(p.first)} ${esc(p.last)} · <span class="muted">${esc(p.position||"")}</span></span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>`).join(""):`<p class="muted">No one yet. Import your LinkedIn connections on the People tab, or add someone you find.</p>`}</div>`;
+  <div class="card"><h3>People you know at ${esc(j.company)}</h3>${j.linkedin?`<div class="row"><a class="btn small" href="${esc(j.linkedin)}" target="_blank" rel="noopener">Company on LinkedIn</a><a class="btn small" href="${esc(j.linkedin.replace(/\/$/,""))}/people/?keywords=recruiter" target="_blank" rel="noopener">Find recruiters</a><a class="btn small" href="${esc(j.linkedin.replace(/\/$/,""))}/people/?keywords=support" target="_blank" rel="noopener">Find the support team</a></div>`:""}${ppl.length?ppl.map(p=>`<div class="spread"><span>${esc(p.first)} ${esc(p.last)} · <span class="muted">${esc(p.position||"")}</span></span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>`).join(""):`<p class="muted">No one yet. Import your LinkedIn connections on the People tab, or add someone you find.</p>`}</div>`;
   $("#backJobs").onclick=()=>{openJob=null;renderJobs()};
   const dl=$("#dlResume");if(dl)dl.onclick=()=>downloadResume(j.resume,dl);
   v.querySelectorAll("[data-kit]").forEach(b=>b.onclick=()=>copy(j.kit[+b.dataset.kit].text));
@@ -553,6 +553,7 @@ async function renderAdmin(){
     <div class="row"><label class="field" for="vCo">Company<input id="vCo"></label><label class="field" for="vRole">Role<input id="vRole"></label></div>
     <div class="row"><label class="field" for="vMatch">Match %<input id="vMatch" inputmode="numeric"></label><label class="field" for="vPay">Pay<input id="vPay"></label></div>
     <label class="field" for="vWhere">Where<input id="vWhere"></label><label class="field" for="vUrl">Posting link<input id="vUrl" inputmode="url"></label>
+    <label class="field" for="vLi">Company LinkedIn page<input id="vLi" inputmode="url"></label>
     <label class="field" for="vResume">Resume file name<input id="vResume"></label>
     <label class="field" for="vWhy">Why it fits<textarea id="vWhy"></textarea></label><label class="field" for="vWatch">Watch out for<textarea id="vWatch"></textarea></label>
     <button class="btn primary" id="vAdd">Add job</button></div>`;
@@ -569,7 +570,7 @@ async function renderAdmin(){
   const xa=$("#xAdd");if(xa)xa.onclick=async()=>{const p={id:"a"+Date.now().toString(36),user_id:m.user_id,first:$("#xFirst").value.trim(),last:$("#xLast").value.trim(),company:$("#xCo").value.trim(),position:$("#xPos").value.trim(),url:$("#xUrl").value.trim(),status:"To message",source:"Assigned"};
     if(!p.first){toast("Add at least a first name");return}const {error}=await sb.from("people").insert(p);if(error){fail(error);return}toast("Added to his list");renderAdmin()};
   $("#vAdd").onclick=async()=>{const co=$("#vCo").value.trim(),ro=$("#vRole").value.trim();if(!co||!ro){toast("Add a company and a role");return}
-    const row={id:(co+"-"+ro).toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,40)+"-"+Date.now().toString(36).slice(-4),company:co,role:ro,match:parseInt($("#vMatch").value)||null,pay:$("#vPay").value.trim()||null,location:$("#vWhere").value.trim()||null,url:$("#vUrl").value.trim()||null,resume:$("#vResume").value.trim()||null,why:$("#vWhy").value.trim()||null,watch:$("#vWatch").value.trim()||null};
+    const row={id:(co+"-"+ro).toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,40)+"-"+Date.now().toString(36).slice(-4),company:co,role:ro,match:parseInt($("#vMatch").value)||null,pay:$("#vPay").value.trim()||null,location:$("#vWhere").value.trim()||null,url:$("#vUrl").value.trim()||null,resume:$("#vResume").value.trim()||null,why:$("#vWhy").value.trim()||null,watch:$("#vWatch").value.trim()||null,linkedin:$("#vLi").value.trim()||null};
     const {error}=await sb.from("jobs").insert(row);if(error){fail(error);return}JOBS.push(jobFrom({...row,added:today()}));toast("Job added");renderAdmin()};
 }
 
