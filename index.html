@@ -171,8 +171,8 @@ function syncPractice(){if(!sb||!ME)return;clearTimeout(pTimer);pTimer=setTimeou
   const {error}=await sb.from("practice").upsert({user_id:ME.id,done:S.done,days:S.days,remind:D.remind,updated_at:new Date().toISOString()});fail(error)},600)}
 async function syncStatus(id){if(!sb||!ME)return;const st=D.jobs[id];if(!st)return;
   const {error}=await sb.from("job_status").upsert({user_id:ME.id,job_id:id,status:st.status,applied_at:st.appliedAt||null,reply_at:st.replyAt||null,interview_at:st.interviewAt||null,offer_at:st.offerAt||null,followed_up:st.followedUp||null,notes:st.notes||null,updated_at:new Date().toISOString()});fail(error)}
-const personRow=p=>({id:p.id,user_id:p.user_id||ME.id,first:p.first,last:p.last,company:p.company,position:p.position,url:p.url,status:p.status,messaged_at:p.messagedAt||null,replied_at:p.repliedAt||null,followed_up:p.followedUp||null,source:p.source||null});
-const personFrom=r=>({id:r.id,user_id:r.user_id,first:r.first||"",last:r.last||"",company:r.company||"",position:r.position||"",url:r.url||"",status:r.status,messagedAt:r.messaged_at,repliedAt:r.replied_at,followedUp:r.followed_up,source:r.source});
+const personRow=p=>({id:p.id,user_id:p.user_id||ME.id,first:p.first,last:p.last,company:p.company,position:p.position,url:p.url,email:p.email||null,status:p.status,messaged_at:p.messagedAt||null,replied_at:p.repliedAt||null,followed_up:p.followedUp||null,source:p.source||null});
+const personFrom=r=>({id:r.id,user_id:r.user_id,first:r.first||"",last:r.last||"",company:r.company||"",position:r.position||"",url:r.url||"",email:r.email||"",status:r.status,messagedAt:r.messaged_at,repliedAt:r.replied_at,followedUp:r.followed_up,source:r.source});
 async function syncPerson(p){if(!sb||!ME)return;const {error}=await sb.from("people").upsert(personRow(p));fail(error)}
 async function syncPeopleBulk(list){if(!sb||!ME)return;for(let i=0;i<list.length;i+=400){const {error}=await sb.from("people").upsert(list.slice(i,i+400).map(personRow));if(error){fail(error);return}}}
 async function removePerson(id){if(!sb||!ME)return;const {error}=await sb.from("people").delete().eq("id",id);fail(error)}
@@ -441,28 +441,35 @@ function renderPeople(){
 }
 function templates(p){
   const j=JOBS.find(x=>(p.company||"").toLowerCase().includes(x.company.toLowerCase()));
-  const role=j?j.role:"a support engineering role",co=p.company||"your company";
+  const role=j?j.role:"support engineering",co=p.company||"your company";
   const recruiter=/recruit|talent|sourc|hiring/i.test(p.position||"");
   return [
    ["Connection request (under 300 characters)",`Hi ${p.first}, I'm applying for the ${role} role at ${co}. My background is API support on Google Cloud at GE Aerospace plus 3 years of web development. I'd love to connect and learn a bit about the team.`],
    [recruiter?"Message to a recruiter":"Message after they accept",recruiter
      ?`Hi ${p.first}, thanks for connecting. I just applied for the ${role} role at ${co}. At GE Aerospace I resolved 15+ API tickets a week on Google Cloud Apigee and helped cut our backlog by 30%. If it would help, I'm happy to share more about my background. Is there anything you'd suggest I highlight?`
      :`Hi ${p.first}, thanks for connecting. I'm applying for the ${role} role at ${co} and would love your take on the team. What do you enjoy most about working there? If you think I'd be a fit after hearing my background, I'd be grateful for a referral, but no pressure at all.`],
+   ["Email (attach your resume before sending)",`Hi ${p.first},\n\nI just applied for the ${role} role at ${co} and wanted to reach out directly. At GE Aerospace I supported an enterprise API platform on Google Cloud Apigee, resolving 15+ tickets a week on authentication, access and configuration issues and helping cut our backlog by 30%. For 3+ years I've also been the technical contact for a client's production website.\n\nI've attached my resume. If you're open to it, I'd love a quick chat about the team, or any advice on what to highlight.\n\nThanks for your time,\nEdwin Allen`],
    ["Follow-up (5 to 7 days later)",`Hi ${p.first}, just following up on my note about the ${role} role. No worries if you're busy. Any quick advice would mean a lot. Thanks either way!`]]}
+function mailto(p){const t=templates(p).find(x=>x[0].startsWith("Email"));const j=JOBS.find(x=>(p.company||"").toLowerCase().includes(x.company.toLowerCase()));
+  const subj=`${j?j.role:"Support engineering role"}: Edwin Allen`;return `mailto:${encodeURIComponent(p.email).replace("%40","@")}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(t[1])}`}
 function renderPerson(p,v){
   const st=["To message","Messaged","Replied","Referral"];
   v.innerHTML=`<button class="btn" id="backP">Back to people</button>
   <article class="card"><div class="spread"><span class="tid">${esc(p.company||"")}</span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>
   <h2 class="q">${esc(p.first)} ${esc(p.last)}</h2><p class="muted">${esc(p.position||"")}</p>
   ${p.url?`<a class="btn primary" href="${esc(p.url)}" target="_blank" rel="noopener">Open LinkedIn profile</a>`:""}
+  <label class="field" for="pEmail">Work email<input id="pEmail" type="email" inputmode="email" value="${esc(p.email||"")}" placeholder="Paste it here if you have it"></label>
+  ${p.email?`<a class="btn primary" id="mailP" href="${esc(mailto(p))}">Email ${esc(p.first)}</a>`:""}
   <label class="field" for="pStatus">Status<select id="pStatus">${st.map(x=>`<option${x===p.status?" selected":""}>${x}</option>`).join("")}</select></label></article>
-  ${templates(p).map((t,k)=>`<div class="card"><h3>${esc(t[0])}</h3><p data-tpl="${k}">${esc(t[1])}</p><button class="btn small" data-copy="${k}">Copy</button></div>`).join("")}
-  <p class="muted">Edit the message so it sounds like you before sending. You send every message yourself on LinkedIn.</p>
+  ${templates(p).map((t,k)=>`<div class="card"><h3>${esc(t[0])}</h3><p data-tpl="${k}" style="white-space:pre-line">${esc(t[1])}</p><button class="btn small" data-copy="${k}">Copy</button></div>`).join("")}
+  <p class="muted">Edit the message so it sounds like you before sending. You send every message yourself, on LinkedIn or from your email.</p>
   <button class="btn" id="delP">Remove this person</button>`;
   const tp=templates(p);
   $("#backP").onclick=()=>{openPerson=null;renderPeople()};
   $("#pStatus").onchange=e=>{const s=e.target.value;if(s==="Messaged"&&p.status!=="Messaged")p.messagedAt=today();if(s==="Replied"&&!p.repliedAt){p.repliedAt=today();logEvent("reply",p.first+" "+p.last)}p.status=s;saveD();syncPerson(p);renderPerson(p,v);toast("Updated")};
   v.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copy(tp[+b.dataset.copy][1]));
+  $("#pEmail").onchange=e=>{const x=e.target.value.trim();if(x&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)){toast("That doesn't look like an email");return}p.email=x;saveD();syncPerson(p);renderPerson(p,v);toast(x?"Email saved":"Email removed")};
+  const mp=$("#mailP");if(mp)mp.onclick=()=>{toast("Attach your resume, then send. Mark them Messaged after.")};
   $("#delP").onclick=()=>{if(b2.dataset.armed){D.people=D.people.filter(x=>x.id!==p.id);saveD();removePerson(p.id);openPerson=null;renderPeople();toast("Removed")}else{b2.dataset.armed=1;b2.textContent="Tap again to remove"}};
   const b2=$("#delP");
 }
@@ -538,12 +545,13 @@ async function renderAdmin(){
     <div class="card"><h3>Jobs</h3>${JOBS.map(j=>{const r=stById[j.id];const s=r?r.status:"To apply";
       return `<div class="spread"><span><b>${esc(j.company)}</b> · ${esc(j.role)}${r&&r.applied_at?` <span class="muted">· applied ${nice(r.applied_at)}</span>`:""}</span><span class="row"><span class="pill ${s==="To apply"?"open":"done"}">${esc(s)}</span><button class="btn small" data-archive="${esc(j.id)}">Archive</button></span></div>`}).join("")||`<p class="muted">No active jobs.</p>`}</div>
     <div class="card"><h3>Outreach</h3><p class="muted">${ppl.length} contacts · ${byStatus("To message")} to message · ${byStatus("Messaged")} messaged · ${byStatus("Replied")} replied · ${byStatus("Referral")} referrals</p>
-      ${ppl.filter(p=>p.source==="Assigned").map(p=>`<div class="spread"><span>${esc(p.first)} ${esc(p.last)} · <span class="muted">${esc(p.company||"")}</span></span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>`).join("")}</div>
+      ${ppl.filter(p=>p.source==="Assigned").map(p=>`<div class="spread"><span>${esc(p.first)} ${esc(p.last)} · <span class="muted">${esc(p.company||"")}</span></span><span class="row"><button class="btn small" data-pemail="${esc(p.id)}" data-cur="${esc(p.email||"")}">${p.email?"Edit email":"Add email"}</button><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></span></div>`).join("")}
+      <div id="peBox" hidden class="row"><label class="field" for="peIn">Work email<input id="peIn" type="email" inputmode="email"></label><button class="btn primary" id="peSave">Save</button></div></div>
     <div class="card"><h3>From his inbox</h3>${(em.data||[]).length?(em.data||[]).map(x=>{const k=KIND[x.kind]||["Email","info"];return `<div class="spread"><span><b>${esc(x.company_guess||"Unknown")}</b> · <span class="muted">${esc((x.subject||"").slice(0,70))}</span></span><span class="pill ${k[1]}">${k[0]}</span></div>`}).join(""):`<p class="muted">No job emails yet. They show up once he connects Gmail.</p>`}</div>
     <div class="card"><h3>Send him a contact to reach out to</h3>
       <div class="row"><label class="field" for="xFirst">First name<input id="xFirst"></label><label class="field" for="xLast">Last name<input id="xLast"></label></div>
       <div class="row"><label class="field" for="xCo">Company<input id="xCo"></label><label class="field" for="xPos">Role<input id="xPos"></label></div>
-      <label class="field" for="xUrl">LinkedIn profile link<input id="xUrl" inputmode="url"></label><button class="btn primary" id="xAdd">Add to his People list</button></div>`}
+      <label class="field" for="xUrl">LinkedIn profile link<input id="xUrl" inputmode="url"></label><label class="field" for="xEmail">Work email (optional)<input id="xEmail" type="email" inputmode="email"></label><button class="btn primary" id="xAdd">Add to his People list</button></div>`}
   v.innerHTML=`${members.length>1?`<label class="field" for="mSel">Viewing<select id="mSel">${members.map(x=>`<option value="${esc(x.user_id)}"${x.user_id===adminMember?" selected":""}>${esc(x.display_name||x.email)}</option>`).join("")}</select></label>`:""}
   ${body}
   <div class="card"><h3>Resumes</h3><p class="muted">Upload PDFs named after the job's resume file name. Only you and Edwin can open them.</p>
@@ -567,7 +575,10 @@ async function renderAdmin(){
     toast(n+" uploaded");listResumes()};
   v.querySelectorAll("[data-archive]").forEach(b=>b.onclick=async()=>{if(!b.dataset.armed){b.dataset.armed=1;b.textContent="Tap to confirm";return}
     const {error}=await sb.from("jobs").update({active:false}).eq("id",b.dataset.archive);if(error){fail(error);return}JOBS=JOBS.filter(j=>j.id!==b.dataset.archive);toast("Archived");renderAdmin()});
-  const xa=$("#xAdd");if(xa)xa.onclick=async()=>{const p={id:"a"+Date.now().toString(36),user_id:m.user_id,first:$("#xFirst").value.trim(),last:$("#xLast").value.trim(),company:$("#xCo").value.trim(),position:$("#xPos").value.trim(),url:$("#xUrl").value.trim(),status:"To message",source:"Assigned"};
+  let peId=null;v.querySelectorAll("[data-pemail]").forEach(b=>b.onclick=()=>{peId=b.dataset.pemail;$("#peBox").hidden=false;$("#peIn").value=b.dataset.cur;$("#peIn").focus()});
+  const ps=$("#peSave");if(ps)ps.onclick=async()=>{const x=$("#peIn").value.trim();if(x&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)){toast("That doesn't look like an email");return}
+    const {error}=await sb.from("people").update({email:x||null}).eq("id",peId);if(error){fail(error);return}toast(x?"Email saved":"Email removed");renderAdmin()};
+  const xa=$("#xAdd");if(xa)xa.onclick=async()=>{const p={id:"a"+Date.now().toString(36),user_id:m.user_id,first:$("#xFirst").value.trim(),last:$("#xLast").value.trim(),company:$("#xCo").value.trim(),position:$("#xPos").value.trim(),url:$("#xUrl").value.trim(),email:$("#xEmail").value.trim()||null,status:"To message",source:"Assigned"};
     if(!p.first){toast("Add at least a first name");return}const {error}=await sb.from("people").insert(p);if(error){fail(error);return}toast("Added to his list");renderAdmin()};
   $("#vAdd").onclick=async()=>{const co=$("#vCo").value.trim(),ro=$("#vRole").value.trim();if(!co||!ro){toast("Add a company and a role");return}
     const row={id:(co+"-"+ro).toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,40)+"-"+Date.now().toString(36).slice(-4),company:co,role:ro,match:parseInt($("#vMatch").value)||null,pay:$("#vPay").value.trim()||null,location:$("#vWhere").value.trim()||null,url:$("#vUrl").value.trim()||null,resume:$("#vResume").value.trim()||null,why:$("#vWhy").value.trim()||null,watch:$("#vWatch").value.trim()||null,linkedin:$("#vLi").value.trim()||null};
