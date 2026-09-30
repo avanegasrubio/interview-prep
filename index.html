@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f6e74">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Interview Reps">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>*,*::before,*::after{box-sizing:border-box}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>Edwin's Interview Reps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one narrow column, a support queue. Each question is a ticket; answering it resolves the ticket. */
+:root{
+  --bg:#eef1f4; --panel:#ffffff; --ink:#15212b; --muted:#5b6b78; --line:#d5dce3;
+  --accent:#0f6e74; --accent-ink:#ffffff; --open:#b4561b; --open-bg:#fbeadf; --done:#1d7a44; --done-bg:#e1f3e8;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f161c; --panel:#18222b; --ink:#e7eef3; --muted:#9aabb8; --line:#2a3743;
+  --accent:#4fc1c6; --accent-ink:#06282a; --open:#f0a36b; --open-bg:#3a2518; --done:#6fd49a; --done-bg:#14301f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f161c; --panel:#18222b; --ink:#e7eef3; --muted:#9aabb8; --line:#2a3743;
+  --accent:#4fc1c6; --accent-ink:#06282a; --open:#f0a36b; --open-bg:#3a2518; --done:#6fd49a; --done-bg:#14301f; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 var(--body)}
+.wrap{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-direction:column;gap:4px}
+.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font:800 clamp(28px,7vw,36px)/1.05 var(--display);margin:0;text-wrap:balance}
+.stats{display:flex;gap:10px;flex-wrap:wrap}
+.stat{flex:1 1 120px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat b{display:block;font:600 24px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--muted)}
+.tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px}
+.tabs button{flex:1;border:0;background:transparent;color:var(--muted);font:700 14px var(--body);padding:10px 6px;border-radius:7px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.ticket{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.tmeta{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.tid{font:500 13px var(--mono);color:var(--muted)}
+.pill{font:700 12px var(--body);padding:3px 10px;border-radius:99px;letter-spacing:.02em}
+.pill.open{background:var(--open-bg);color:var(--open)}
+.pill.done{background:var(--done-bg);color:var(--done)}
+.cat{font-size:13px;color:var(--muted)}
+.q{font:600 21px/1.3 var(--display);margin:0;text-wrap:balance}
+.hint{font-size:14px;color:var(--muted);margin:0}
+.answer{border-top:1px dashed var(--line);padding-top:12px;min-width:0}
+.answer p{margin:0 0 8px}
+.answer pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow-x:auto;font:13px/1.5 var(--mono);margin:6px 0 0}
+.answer ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{flex:1 1 140px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:700 15px var(--body);padding:12px;border-radius:9px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.good{border-color:var(--done);color:var(--done)}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;text-align:left;color:var(--ink);font:15px/1.35 var(--body);width:100%}
+.item .tid{flex:0 0 auto}
+.item .t{flex:1;min-width:0}
+.dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto;background:var(--open)}
+.dot.done{background:var(--done)}
+.note{font-size:14px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.note b{color:var(--ink)}
+h2{font:600 18px var(--display);margin:6px 0 0}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Support queue · interview reps</span>
+    <h1>Edwin's Interview Reps</h1>
+  </header>
+
+  <div class="stats" aria-label="Progress">
+    <div class="stat"><b id="sDone">0 / 26</b><span>tickets resolved</span></div>
+    <div class="stat"><b id="sStreak">0 days</b><span>practice streak</span></div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabToday" aria-selected="true">Today</button>
+    <button role="tab" id="tabQueue" aria-selected="false">Queue</button>
+    <button role="tab" id="tabHow" aria-selected="false">How to</button>
+  </div>
+
+  <section id="viewToday"></section>
+  <section id="viewQueue" hidden></section>
+  <section id="viewHow" hidden>
+    <div class="list">
+      <div class="note"><b>One ticket a day on workdays.</b> Read the question, answer it out loud like you're in the interview, then tap Show answer and compare. That's 15 minutes.</div>
+      <div class="note"><b>On days off, clear a category.</b> Open the Queue and work through one group, or tell all six stories with a timer. Each story should fit in 90 seconds.</div>
+      <div class="note"><b>Put it on your home screen.</b> iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open it in Chrome, tap the ⋮ menu, then Add to Home screen.</div>
+      <div class="note"><b>Your progress stays on this phone.</b> Resolved tickets and your streak are saved in this browser only, so use the same phone and browser each time.</div>
+    </div>
+  </section>
+</div>
+
+<script>
+const T=[
+ ["Web & HTTP","What happens when you type a website address and press Enter?","<p>The browser looks up the domain's IP address (DNS), opens a secure connection, and sends an HTTP request. The server sends back a response, and the browser renders the page and loads its images, scripts and styles.</p><p>A problem can happen at any step, which is why it's the classic warm-up question.</p>"],
+ ["Web & HTTP","What's the difference between a 401 and a 403?","<p><b>401:</b> \"I don't know who you are.\" The login, key or token is missing or invalid.</p><p><b>403:</b> \"I know who you are, but you're not allowed.\" A permissions problem. Your GE work lived here.</p>"],
+ ["Web & HTTP","What do 404, 429, 500 and 503 usually mean in a support ticket?","<ul><li><b>404:</b> the thing requested doesn't exist, often a wrong URL or ID.</li><li><b>429:</b> too many requests. The customer hit a rate limit.</li><li><b>500:</b> something broke on the server. Likely a bug to escalate.</li><li><b>503:</b> the service is down or overloaded. Check the status page.</li></ul>"],
+ ["Web & HTTP","What's the difference between HTTP and HTTPS?","<p>HTTPS encrypts traffic between the browser and the server using a certificate, so no one in between can read or change it. An expired or mismatched certificate causes browser security warnings.</p>"],
+ ["Web & HTTP","Why does \"clear your cache\" or \"try an incognito window\" fix so many issues?","<p>The cache stores old copies of files, and cookies store login sessions. If either is stale or broken, the page misbehaves.</p><p>An incognito window starts clean, so it quickly tells you whether the problem is the browser or the account.</p>"],
+ ["APIs & auth","What is a REST API?","<p>A way for two systems to talk over HTTP. Each resource has a URL, and you use methods like GET (read), POST (create), PUT or PATCH (update) and DELETE (remove). Data usually comes back as JSON.</p>"],
+ ["APIs & auth","What's the difference between an API key and OAuth?","<p>An API key is one secret that identifies an app, like a password for software.</p><p>OAuth lets a user grant an app limited access to their account without sharing their password. It uses tokens that expire and can be limited to certain permissions.</p>"],
+ ["APIs & auth","What are SSO and MFA?","<p><b>SSO</b> (single sign-on): one company login signs you into many apps, through a provider like Okta or Microsoft.</p><p><b>MFA</b> (multi-factor authentication): a second proof, like a phone code, on top of the password.</p>"],
+ ["APIs & auth","A customer's API calls started failing with 401 errors this morning. Walk me through it.","<ul><li>Ask what changed.</li><li>Check if the key or token expired or was rotated.</li><li>Check it's sent in the right header and format.</li><li>Check they're not using a test key in production, or the reverse.</li><li>Reproduce the call in Postman with their setup.</li><li>Still failing with a correct setup? Escalate with the request, the response and the timestamp.</li></ul>"],
+ ["APIs & auth","What's a webhook, and how would you troubleshoot one that isn't arriving?","<p>A webhook is the reverse of an API call: the service sends a message to the customer's URL when an event happens.</p><p>Check the URL is correct and publicly reachable, that their server answers with a success code quickly, and what the delivery logs show about failures and retries.</p>"],
+ ["Debugging","How would you use browser DevTools to troubleshoot a problem?","<p>Open the <b>Console</b> tab for JavaScript errors. Open the <b>Network</b> tab, reproduce the problem, and look for requests in red. Click one to see its status code and response.</p><p>That usually shows whether the problem is the page, the server or the account.</p>"],
+ ["Debugging","What's a HAR file, and when would you ask a customer for one?","<p>A recording of every network request the browser made. Ask for one when you can't reproduce the problem yourself, so engineering can see exactly what failed.</p><p>Warn the customer it can contain sensitive data like session tokens.</p>"],
+ ["Debugging","How do you approach an error message you've never seen before?","<ul><li>Read the error code, message and timestamp closely.</li><li>Search the docs and the knowledge base.</li><li>Match it to what the user was doing at that moment.</li><li>Try to reproduce it.</li><li>Still can't explain it? Escalate with everything you found.</li></ul>"],
+ ["SQL","Write a query to find every user whose email ends in @acme.com.","<pre>SELECT * FROM users\nWHERE email LIKE '%@acme.com';</pre>"],
+ ["SQL","What does a JOIN do? Give an example.","<p>It combines rows from two tables that share a value. For example, each order with the customer's name:</p><pre>SELECT orders.id, users.name\nFROM orders\nJOIN users ON orders.user_id = users.id;</pre>"],
+ ["SQL","How would you count support tickets per customer, most first?","<pre>SELECT customer_id, COUNT(*) AS ticket_count\nFROM tickets\nGROUP BY customer_id\nORDER BY ticket_count DESC;</pre>"],
+ ["Scenarios","A customer says the app is slow. How do you troubleshoot?","<ul><li>Narrow it down: one user or everyone, since when, which action?</li><li>Check the status page and try it yourself.</li><li>In the Network tab, find the slowest request.</li><li>Then check their connection and browser, or escalate with timings if it's the product.</li></ul>"],
+ ["Scenarios","It works for you but not for the customer. What do you check?","<p>What's different between you: account and permissions, browser and version, cached data, network (VPN or company firewall), region, and the data in their account.</p><p>Reproduce with settings as close to theirs as possible.</p>"],
+ ["Scenarios","You found a real bug, but engineering can't fix it for two weeks. What do you do?","<p>Find a workaround, tell the customer honestly when a fix is expected, and add the workaround to the knowledge base so others get it too. Follow up when the fix ships.</p>"],
+ ["Scenarios","Explain what an API is to someone non-technical.","<p>Like a waiter in a restaurant: you tell the waiter what you want, the waiter takes the order to the kitchen (another system), and brings back what you asked for. You never go into the kitchen yourself.</p>"],
+ ["Your stories","Tell story 1: The backlog (GE Aerospace).","<ul><li><b>S:</b> The support queue on GE's Apigee platform had a backlog.</li><li><b>T:</b> You owned the queue: auth failures, keys and secrets, config, permissions.</li><li><b>A:</b> Triaged by urgency and impact, first response under 2 hours, 15+ tickets a week, documented every fix.</li><li><b>R:</b> Backlog down 30% in three months.</li></ul>"],
+ ["Your stories","Tell story 2: The repeat question (GE Aerospace).","<ul><li><b>S:</b> The same kind of ticket kept coming from different teams.</li><li><b>T:</b> Fixing each one from scratch wasn't scaling.</li><li><b>A:</b> Wrote the fix up as a knowledge base entry and pointed people to it.</li><li><b>R:</b> Those tickets closed faster or stopped coming back.</li></ul><p class=\"hint\">Use your real example of which issue it was.</p>"],
+ ["Your stories","Tell story 3: The escalation (GE Aerospace).","<ul><li><b>S:</b> A user reported a failure you couldn't fix with config.</li><li><b>T:</b> Find out if it was yours to fix or engineering's.</li><li><b>A:</b> Reproduced it, traced logs and request data, escalated with the diagnosis attached, kept the user updated.</li><li><b>R:</b> Use the real outcome: how fast it got fixed.</li></ul>"],
+ ["Your stories","Tell story 4: Explaining it plainly (NIA Entertainment).","<ul><li><b>S:</b> Go-to technical contact for NIA since June 2023. They aren't technical.</li><li><b>T:</b> A time they needed to make a decision.</li><li><b>A:</b> Explained the problem and options in plain language and recommended one.</li><li><b>R:</b> They decided with confidence. Renewed without a break for 3+ years.</li></ul>"],
+ ["Your stories","Tell story 5: The live-site bug (NIA Entertainment).","<ul><li><b>S:</b> A user reported a bug on the live site.</li><li><b>T:</b> Fix it without breaking anything else.</li><li><b>A:</b> Reproduced it, found the cause, tested the fix before release, documented it.</li><li><b>R:</b> Use the real outcome: how fast, and that it didn't come back.</li></ul>"],
+ ["Your stories","Tell story 6: Working on the nerves.","<ul><li><b>S:</b> Skills were solid, but live calls made you nervous.</li><li><b>T:</b> Get genuinely comfortable talking live.</li><li><b>A:</b> Technical Sales Training (General Assembly & Adobe), and daily calls on purpose.</li><li><b>R:</b> Calls feel normal now. You can think while you talk.</li></ul>"]
+];
+const KEY="edwin-reps-v1";
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}}
+function save(s){try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){}}
+let S=load(); S.done=S.done||{}; S.days=S.days||[];
+const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const tid=i=>"TKT-"+String(101+i);
+function streak(){const set=new Set(S.days);let n=0;const d=new Date();if(!set.has(today()))d.setDate(d.getDate()-1);
+  while(true){const k=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");if(set.has(k)){n++;d.setDate(d.getDate()-1)}else break}return n}
+function stats(){const n=Object.keys(S.done).length;document.getElementById("sDone").textContent=n+" / "+T.length;const st=streak();document.getElementById("sStreak").textContent=st+(st===1?" day":" days")}
+function dailyIndex(){const open=T.map((_,i)=>i).filter(i=>!S.done[i]);const pool=open.length?open:T.map((_,i)=>i);
+  const d=today().split("-").join("");let h=0;for(const c of d)h=(h*31+c.charCodeAt(0))%9973;return pool[h%pool.length]}
+let current=null;
+function ticket(i,showAll){
+  const done=!!S.done[i];const [cat,q,a]=T[i];
+  return `<article class="ticket"><div class="tmeta"><span class="tid">${tid(i)} · <span class="cat">${cat}</span></span><span class="pill ${done?"done":"open"}">${done?"Resolved":"Open"}</span></div>
+  <h2 class="q">${q}</h2><p class="hint">Answer out loud first, like you're in the interview.</p>
+  <div class="answer" id="ans" hidden>${a}</div>
+  <div class="row" id="acts"><button class="btn primary" id="reveal">Show answer</button></div></article>`}
+function bindTicket(i,host,after){
+  host.querySelector("#reveal").onclick=()=>{host.querySelector("#ans").hidden=false;
+    host.querySelector("#acts").innerHTML=`<button class="btn good" id="got">Got it</button><button class="btn" id="again">Practice again</button>`;
+    host.querySelector("#got").onclick=()=>{S.done[i]=1;mark();after()};
+    host.querySelector("#again").onclick=()=>{delete S.done[i];mark();after()}}}
+function mark(){if(!S.days.includes(today()))S.days.push(today());save(S);stats()}
+function renderToday(){const v=document.getElementById("viewToday");const i=dailyIndex();
+  v.innerHTML=`<div class="list">${ticket(i)}<div class="note"><b>Today's ticket.</b> It changes each day. Want more? Open the Queue.</div></div>`;
+  bindTicket(i,v,()=>renderToday())}
+function renderQueue(){const v=document.getElementById("viewQueue");
+  if(current!==null){v.innerHTML=`<div class="list">${ticket(current)}<button class="btn" id="back">Back to queue</button></div>`;
+    bindTicket(current,v,()=>{current=null;renderQueue()});v.querySelector("#back").onclick=()=>{current=null;renderQueue()};return}
+  let html="",last="";T.forEach((t,i)=>{if(t[0]!==last){html+=`<h2>${t[0]}</h2>`;last=t[0]}
+    html+=`<button class="item" data-i="${i}"><span class="dot ${S.done[i]?"done":""}"></span><span class="tid">${tid(i)}</span><span class="t">${t[1]}</span></button>`});
+  v.innerHTML=`<div class="list">${html}</div>`;
+  v.querySelectorAll(".item").forEach(b=>b.onclick=()=>{current=+b.dataset.i;renderQueue();window.scrollTo(0,0)})}
+const tabs={tabToday:"viewToday",tabQueue:"viewQueue",tabHow:"viewHow"};
+Object.keys(tabs).forEach(id=>document.getElementById(id).onclick=()=>{
+  Object.entries(tabs).forEach(([t,v])=>{document.getElementById(t).setAttribute("aria-selected",t===id);document.getElementById(v).hidden=t!==id});
+  if(id==="tabToday")renderToday();if(id==="tabQueue"){current=null;renderQueue()}});
+stats();renderToday();
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))}
+</script>
+
+</body>
+</html>
