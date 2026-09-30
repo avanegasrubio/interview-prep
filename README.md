@@ -11,17 +11,19 @@ A small study app: 20 technical interview questions and 6 STAR stories, one "tic
 - iPhone: open the site in Safari, tap Share, then Add to Home Screen.
 - Android: open it in Chrome, tap the menu, then Add to Home screen or Install app.
 
-## Data
-Progress and the streak are saved on the phone itself (browser storage). No database or server is needed.
-They stay on that one phone and browser, and clearing the browser's site data resets them.
+## Data and sign-in
+Sign-in and data live in Supabase (project: interview-reps). Only emails in the members table can see anything,
+each member sees only their own statuses, contacts and progress, and the admin can see everyone's.
+The Admin tab (admin only) adds vetted jobs, archives jobs, and sends contacts to a member's People list.
+The Supabase URL and anon key in index.html are public by design; the database rules protect the data.
 
 ## Updating
 Edit index.html, then bump CACHE in sw.js (for example interview-reps-v2) so phones pick up the new version.
 
 ## What's in the app
 - Today: daily minimum (1 ticket + 1 application), application nudges, follow-ups due, calendar reminders.
-- Jobs: the vetted shortlist from jobs.json, with status tracking. Update jobs.json to add or change vetted roles.
-- People: import LinkedIn Connections.csv, matched to target companies, with outreach status and message templates. Contacts stay on the phone and are never committed to this repo.
+- Jobs: the vetted shortlist from the database, with status tracking.
+- People: import LinkedIn Connections.csv, matched to target companies, with outreach status and message templates. Contacts are saved to the member's private account, never to this repo.
 - Practice: 20 technical questions and 6 STAR stories, with a 90-second record-yourself timer.
 - Week: applications, replies, interviews and offers for the week, with a copy button.
 

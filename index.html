@@ -11,6 +11,7 @@
 <link rel="icon" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Edwin's Interview Reps</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
@@ -38,7 +39,7 @@ header{display:flex;flex-direction:column;gap:4px}
 h1{font:800 clamp(26px,7vw,34px)/1.05 var(--display);margin:0;text-wrap:balance}
 h2{font:600 19px/1.25 var(--display);margin:4px 0 0;text-wrap:balance}
 h3{font:600 16px/1.3 var(--display);margin:0}
-.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.tabs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
 .tabs button{border:0;background:transparent;color:var(--muted);font:700 13px var(--body);padding:10px 2px;border-radius:7px;cursor:pointer;min-width:0}
 .tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
 section{display:flex;flex-direction:column;gap:12px}
@@ -93,23 +94,28 @@ audio{width:100%}
 <body>
 <div class="wrap">
   <header>
-    <span class="eyebrow">Support queue · interview reps</span>
+    <div class="spread"><span class="eyebrow">Support queue · interview reps</span><button class="btn small" id="signOut" hidden>Sign out</button></div>
     <h1>Edwin's Interview Reps</h1>
+    <p class="muted" id="who" hidden></p>
   </header>
 
-  <nav class="tabs" role="tablist" aria-label="Sections">
+  <section id="auth" hidden></section>
+
+  <nav class="tabs" role="tablist" aria-label="Sections" hidden>
     <button role="tab" data-tab="today" aria-selected="true">Today</button>
     <button role="tab" data-tab="jobs" aria-selected="false">Jobs</button>
     <button role="tab" data-tab="people" aria-selected="false">People</button>
     <button role="tab" data-tab="practice" aria-selected="false">Practice</button>
     <button role="tab" data-tab="week" aria-selected="false">Week</button>
+    <button role="tab" data-tab="admin" aria-selected="false" hidden>Admin</button>
   </nav>
 
-  <section id="today"></section>
+  <section id="today" hidden></section>
   <section id="jobs" hidden></section>
   <section id="people" hidden></section>
   <section id="practice" hidden></section>
   <section id="week" hidden></section>
+  <section id="admin" hidden></section>
 </div>
 <div class="toast" id="toast" hidden></div>
 
@@ -149,7 +155,26 @@ function load(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch(e){re
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 let S=load(KEY,{}); S.done=S.done||{}; S.days=S.days||[];
 let D=load(KEY2,{}); D.jobs=D.jobs||{}; D.people=D.people||[]; D.events=D.events||[]; D.custom=D.custom||[]; D.remind=D.remind||{time:"07:30",days:"work"};
-const saveS=()=>save(KEY,S), saveD=()=>save(KEY2,D);
+const saveD=()=>save(KEY2,D);
+const saveS=()=>{save(KEY,S);syncPractice()};
+
+/* ---------- Supabase sync ---------- */
+const SB_URL="https://hmglutaxerbpfxzwnnbn.supabase.co";
+const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtZ2x1dGF4ZXJicGZ4endubmJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3OTkwNDQsImV4cCI6MjEwNjM3NTA0NH0.Vj2RA-30UnVXIOzG-V-hAGp1M5yhPF--_VZvQlzvVWs";
+const sb=window.supabase?window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}}):null;
+let ME=null, ROLE=null;
+function fail(e){if(e){console.error(e);toast("Couldn't save. Check your connection.")}}
+let pTimer=null;
+function syncPractice(){if(!sb||!ME)return;clearTimeout(pTimer);pTimer=setTimeout(async()=>{
+  const {error}=await sb.from("practice").upsert({user_id:ME.id,done:S.done,days:S.days,remind:D.remind,updated_at:new Date().toISOString()});fail(error)},600)}
+async function syncStatus(id){if(!sb||!ME)return;const st=D.jobs[id];if(!st)return;
+  const {error}=await sb.from("job_status").upsert({user_id:ME.id,job_id:id,status:st.status,applied_at:st.appliedAt||null,reply_at:st.replyAt||null,interview_at:st.interviewAt||null,offer_at:st.offerAt||null,followed_up:st.followedUp||null,notes:st.notes||null,updated_at:new Date().toISOString()});fail(error)}
+const personRow=p=>({id:p.id,user_id:p.user_id||ME.id,first:p.first,last:p.last,company:p.company,position:p.position,url:p.url,status:p.status,messaged_at:p.messagedAt||null,replied_at:p.repliedAt||null,followed_up:p.followedUp||null,source:p.source||null});
+const personFrom=r=>({id:r.id,user_id:r.user_id,first:r.first||"",last:r.last||"",company:r.company||"",position:r.position||"",url:r.url||"",status:r.status,messagedAt:r.messaged_at,repliedAt:r.replied_at,followedUp:r.followed_up,source:r.source});
+async function syncPerson(p){if(!sb||!ME)return;const {error}=await sb.from("people").upsert(personRow(p));fail(error)}
+async function syncPeopleBulk(list){if(!sb||!ME)return;for(let i=0;i<list.length;i+=400){const {error}=await sb.from("people").upsert(list.slice(i,i+400).map(personRow));if(error){fail(error);return}}}
+async function removePerson(id){if(!sb||!ME)return;const {error}=await sb.from("people").delete().eq("id",id);fail(error)}
+const jobFrom=r=>({id:r.id,company:r.company,role:r.role,match:r.match,pay:r.pay,where:r.location,url:r.url,resume:r.resume,why:r.why,watch:r.watch,added:r.added,custom:r.custom,active:r.active});
 
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
@@ -161,21 +186,46 @@ const daysSince=iso=>{if(!iso)return null;const a=new Date(iso+"T00:00:00"),b=ne
 const nice=iso=>iso?new Date(iso+"T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"}):"";
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2200)}
 async function copy(text){try{await navigator.clipboard.writeText(text);toast("Copied")}catch(e){const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Copied")}catch(_){toast("Select the text and copy it")}ta.remove()}}
-function logEvent(type,label){D.events.push({type,label,at:today()});saveD()}
+function logEvent(type,label){const e={type,label,at:today()};D.events.push(e);saveD();
+  if(sb&&ME)sb.from("events").insert({user_id:ME.id,type,label,at:e.at}).then(({error})=>fail(error))}
 function markPracticed(){if(!S.days.includes(today()))S.days.push(today());saveS()}
 function streak(){const set=new Set(S.days);let n=0;const d=new Date();if(!set.has(today()))d.setDate(d.getDate()-1);while(set.has(dkey(d))){n++;d.setDate(d.getDate()-1)}return n}
 function weekStart(){const d=new Date();const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);return dkey(d)}
 
 /* ---------- jobs data (vetted list lives in jobs.json, status lives on this phone) ---------- */
 let JOBS=[];
-async function loadJobs(){try{const r=await fetch("/jobs.json",{cache:"no-store"});if(r.ok)JOBS=await r.json()}catch(e){}
-  JOBS=JOBS.concat(D.custom); renderAll()}
+async function loadAll(){
+  if(!sb||!ME){JOBS=load("edwin-jobs-cache",[]);renderAll();return}
+  const [j,st,pp,ev,pr]=await Promise.all([
+    sb.from("jobs").select("*").eq("active",true),
+    sb.from("job_status").select("*").eq("user_id",ME.id),
+    sb.from("people").select("*").eq("user_id",ME.id),
+    sb.from("events").select("*").eq("user_id",ME.id).order("at"),
+    sb.from("practice").select("*").eq("user_id",ME.id).maybeSingle()]);
+  if(j.error){toast("Couldn't load. Showing what's saved on this phone.");JOBS=load("edwin-jobs-cache",[]);renderAll();return}
+  JOBS=j.data.map(jobFrom);save("edwin-jobs-cache",JOBS);
+  const migrated=load("edwin-migrated-"+ME.id,false);
+  // First sign-in on this phone: move anything saved locally up to the account
+  if(!migrated){
+    const ups=[];
+    Object.entries(D.jobs).forEach(([id,v])=>{if(JOBS.some(x=>x.id===id)&&!(st.data||[]).some(r=>r.job_id===id))ups.push(syncStatus(id))});
+    if(D.people.length&&!(pp.data||[]).length)ups.push(syncPeopleBulk(D.people.map(p=>({...p,user_id:ME.id}))));
+    if(D.events.length&&!(ev.data||[]).length)ups.push(sb.from("events").insert(D.events.map(e=>({user_id:ME.id,type:e.type,label:e.label,at:e.at}))));
+    if(!pr.data&&(Object.keys(S.done).length||S.days.length))ups.push(sb.from("practice").upsert({user_id:ME.id,done:S.done,days:S.days,remind:D.remind}));
+    await Promise.all(ups);save("edwin-migrated-"+ME.id,true);
+    if(ups.length){toast("Your progress on this phone is now saved to your account");return loadAll()}
+  }
+  D.jobs={};(st.data||[]).forEach(r=>D.jobs[r.job_id]={status:r.status,appliedAt:r.applied_at,replyAt:r.reply_at,interviewAt:r.interview_at,offerAt:r.offer_at,followedUp:r.followed_up,notes:r.notes});
+  D.people=(pp.data||[]).map(personFrom);
+  D.events=(ev.data||[]).map(r=>({type:r.type,label:r.label,at:r.at}));
+  if(pr.data){S.done=pr.data.done||{};S.days=pr.data.days||[];D.remind=pr.data.remind||D.remind}
+  save(KEY,S);saveD();renderAll()}
 const STAGES=["To apply","Applied","Replied","Interview","Offer","Passed"];
 const jstate=id=>D.jobs[id]||(D.jobs[id]={status:"To apply"});
 function setJobStatus(job,status){const st=jstate(job.id);const prev=st.status;st.status=status;
   const map={Applied:"applied",Replied:"reply",Interview:"interview",Offer:"offer"};
   if(map[status]&&prev!==status){st[map[status]+"At"]=today();logEvent(map[status],job.company)}
-  saveD();renderAll();toast(status==="Applied"?"Nice. Logged as applied today":"Updated")}
+  saveD();syncStatus(job.id);renderAll();toast(status==="Applied"?"Nice. Logged as applied today":"Updated")}
 function followUpsDue(){
   const out=[];
   JOBS.forEach(j=>{const s=jstate(j.id);if(s.status==="Applied"&&daysSince(s.appliedAt)>=7&&!s.followedUp)out.push({kind:"job",j,d:daysSince(s.appliedAt)})});
@@ -209,10 +259,10 @@ function renderToday(){
     <label class="field" for="rDays">Days<select id="rDays"><option value="work"${D.remind.days==="work"?" selected":""}>Weekdays</option><option value="all"${D.remind.days==="all"?" selected":""}>Every day</option></select></label></div>
     <button class="btn primary" id="ics">Add reminders to my calendar</button></div>`;
   renderTicket(i,$("#todayTicket"),()=>renderToday());
-  v.querySelectorAll("[data-fu-job]").forEach(b=>b.onclick=()=>{jstate(b.dataset.fuJob).followedUp=today();saveD();renderAll();toast("Follow-up logged")});
-  v.querySelectorAll("[data-fu-person]").forEach(b=>b.onclick=()=>{const p=D.people.find(x=>x.id===b.dataset.fuPerson);if(p){p.followedUp=today();saveD();renderAll();toast("Follow-up logged")}});
-  $("#rTime").onchange=e=>{D.remind.time=e.target.value;saveD()};
-  $("#rDays").onchange=e=>{D.remind.days=e.target.value;saveD()};
+  v.querySelectorAll("[data-fu-job]").forEach(b=>b.onclick=()=>{jstate(b.dataset.fuJob).followedUp=today();saveD();syncStatus(b.dataset.fuJob);renderAll();toast("Follow-up logged")});
+  v.querySelectorAll("[data-fu-person]").forEach(b=>b.onclick=()=>{const p=D.people.find(x=>x.id===b.dataset.fuPerson);if(p){p.followedUp=today();saveD();syncPerson(p);renderAll();toast("Follow-up logged")}});
+  $("#rTime").onchange=e=>{D.remind.time=e.target.value;saveD();syncPractice()};
+  $("#rDays").onchange=e=>{D.remind.days=e.target.value;saveD();syncPractice()};
   $("#ics").onclick=downloadIcs;
 }
 
@@ -261,8 +311,10 @@ function renderJobs(){
   `<div class="card"><h3>Add a job you found</h3><div class="row"><label class="field" for="nCo">Company<input id="nCo"></label><label class="field" for="nRole">Role<input id="nRole"></label></div>
   <label class="field" for="nUrl">Job link<input id="nUrl" inputmode="url"></label><button class="btn" id="addJob">Add job</button></div>`;
   v.querySelectorAll("[data-job]").forEach(b=>b.onclick=()=>{openJob=b.dataset.job;renderJobs();window.scrollTo(0,0)});
-  $("#addJob").onclick=()=>{const co=$("#nCo").value.trim(),ro=$("#nRole").value.trim();if(!co||!ro){toast("Add a company and a role");return}
-    D.custom.push({id:"c"+Date.now(),company:co,role:ro,url:$("#nUrl").value.trim(),added:today(),custom:true});saveD();JOBS=JOBS.filter(j=>!j.custom).concat(D.custom);renderJobs();toast("Job added")};
+  $("#addJob").onclick=async()=>{const co=$("#nCo").value.trim(),ro=$("#nRole").value.trim();if(!co||!ro){toast("Add a company and a role");return}
+    const nj={id:"c"+Date.now().toString(36),company:co,role:ro,url:$("#nUrl").value.trim()||null,custom:true};
+    if(sb&&ME){const {error}=await sb.from("jobs").insert({...nj,created_by:ME.id});if(error){fail(error);return}}
+    JOBS.push({...nj,added:today()});save("edwin-jobs-cache",JOBS);renderJobs();toast("Job added")};
 }
 function renderJob(j,v){
   const s=jstate(j.id);const ppl=peopleAt(j.company);
@@ -278,7 +330,7 @@ function renderJob(j,v){
   <div class="card"><h3>People you know at ${esc(j.company)}</h3>${ppl.length?ppl.map(p=>`<div class="spread"><span>${esc(p.first)} ${esc(p.last)} · <span class="muted">${esc(p.position||"")}</span></span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>`).join(""):`<p class="muted">No one yet. Import your LinkedIn connections on the People tab, or add someone you find.</p>`}</div>`;
   $("#backJobs").onclick=()=>{openJob=null;renderJobs()};
   $("#jStatus").onchange=e=>setJobStatus(j,e.target.value);
-  $("#jNotes").onchange=e=>{s.notes=e.target.value;saveD();toast("Notes saved")};
+  $("#jNotes").onchange=e=>{s.notes=e.target.value;saveD();syncStatus(j.id);toast("Notes saved")};
 }
 
 /* ---------- PEOPLE ---------- */
@@ -293,8 +345,8 @@ function importConnections(text){
   const head=rows[h].map(c=>c.trim());const ix=n=>head.indexOf(n);
   let added=0;const seen=new Set(D.people.map(p=>p.url||p.first+p.last+p.company));
   rows.slice(h+1).forEach(r=>{const p={first:r[ix("First Name")]||"",last:r[ix("Last Name")]||"",url:r[ix("URL")]||"",company:r[ix("Company")]||"",position:r[ix("Position")]||"",status:"To message",source:"LinkedIn"};
-    if(!p.first&&!p.last)return;const k=p.url||p.first+p.last+p.company;if(seen.has(k))return;seen.add(k);p.id="p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);D.people.push(p);added++});
-  saveD();renderAll();toast(added+" connections imported")}
+    if(!p.first&&!p.last)return;const k=p.url||p.first+p.last+p.company;if(seen.has(k))return;seen.add(k);p.id="p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);p._new=1;D.people.push(p);added++});
+  saveD();renderAll();toast(added+" connections imported");syncPeopleBulk(D.people.filter(p=>p._new).map(p=>{delete p._new;return p}))}
 function score(p){let s=0;const co=(p.company||"").toLowerCase(),pos=(p.position||"").toLowerCase();
   if(JOBS.some(j=>co&&co.includes(j.company.toLowerCase())))s+=10;
   if(/recruit|talent|sourc|hiring/.test(pos))s+=4;
@@ -324,7 +376,7 @@ function renderPeople(){
   $("#pf").onchange=e=>{peopleFilter=e.target.value;renderPeople()};
   v.querySelectorAll("[data-person]").forEach(b=>b.onclick=()=>{openPerson=b.dataset.person;renderPeople();window.scrollTo(0,0)});
   $("#addP").onclick=()=>{const p={first:$("#aFirst").value.trim(),last:$("#aLast").value.trim(),company:$("#aCo").value.trim(),position:$("#aPos").value.trim(),url:$("#aUrl").value.trim(),status:"To message",source:"Added"};
-    if(!p.first){toast("Add at least a first name");return}p.id="p"+Date.now().toString(36);D.people.push(p);saveD();renderPeople();toast("Person added")};
+    if(!p.first){toast("Add at least a first name");return}p.id="p"+Date.now().toString(36);D.people.push(p);saveD();syncPerson(p);renderPeople();toast("Person added")};
 }
 function templates(p){
   const j=JOBS.find(x=>(p.company||"").toLowerCase().includes(x.company.toLowerCase()));
@@ -348,9 +400,9 @@ function renderPerson(p,v){
   <button class="btn" id="delP">Remove this person</button>`;
   const tp=templates(p);
   $("#backP").onclick=()=>{openPerson=null;renderPeople()};
-  $("#pStatus").onchange=e=>{const s=e.target.value;if(s==="Messaged"&&p.status!=="Messaged")p.messagedAt=today();if(s==="Replied"&&!p.repliedAt){p.repliedAt=today();logEvent("reply",p.first+" "+p.last)}p.status=s;saveD();renderPerson(p,v);toast("Updated")};
+  $("#pStatus").onchange=e=>{const s=e.target.value;if(s==="Messaged"&&p.status!=="Messaged")p.messagedAt=today();if(s==="Replied"&&!p.repliedAt){p.repliedAt=today();logEvent("reply",p.first+" "+p.last)}p.status=s;saveD();syncPerson(p);renderPerson(p,v);toast("Updated")};
   v.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copy(tp[+b.dataset.copy][1]));
-  $("#delP").onclick=()=>{if(b2.dataset.armed){D.people=D.people.filter(x=>x.id!==p.id);saveD();openPerson=null;renderPeople();toast("Removed")}else{b2.dataset.armed=1;b2.textContent="Tap again to remove"}};
+  $("#delP").onclick=()=>{if(b2.dataset.armed){D.people=D.people.filter(x=>x.id!==p.id);saveD();removePerson(p.id);openPerson=null;renderPeople();toast("Removed")}else{b2.dataset.armed=1;b2.textContent="Tap again to remove"}};
   const b2=$("#delP");
 }
 
@@ -394,12 +446,109 @@ function downloadIcs(){
   toast("Open the file to add the reminders")}
 
 /* ---------- tabs ---------- */
-const views={today:renderToday,jobs:renderJobs,people:renderPeople,practice:renderPractice,week:renderWeek};
+/* ---------- ADMIN ---------- */
+let adminMember=null;
+async function renderAdmin(){
+  const v=$("#admin");if(ROLE!=="admin"){v.innerHTML="";return}
+  v.innerHTML=`<p class="muted">Loading...</p>`;
+  const acc=await sb.rpc("member_accounts");
+  if(acc.error){v.innerHTML=`<p class="muted">Couldn't load members.</p>`;return}
+  const members=(acc.data||[]).filter(m=>m.role!=="admin");
+  if(!adminMember&&members.length)adminMember=members[0].user_id;
+  const m=members.find(x=>x.user_id===adminMember);
+  let body="";
+  if(!m){body=`<div class="card"><h3>Waiting for Edwin</h3><p class="muted">He shows up here once he creates his account with his email on the sign-in screen.</p></div>`}
+  else{
+    const ws=weekStart();
+    const [st,ev,pp,pr]=await Promise.all([
+      sb.from("job_status").select("*").eq("user_id",m.user_id),
+      sb.from("events").select("*").eq("user_id",m.user_id).gte("at",ws),
+      sb.from("people").select("*").eq("user_id",m.user_id),
+      sb.from("practice").select("*").eq("user_id",m.user_id).maybeSingle()]);
+    const c=t=>(ev.data||[]).filter(e=>e.type===t).length;
+    const stById={};(st.data||[]).forEach(r=>stById[r.job_id]=r);
+    const ppl=pp.data||[];const byStatus=k=>ppl.filter(p=>p.status===k).length;
+    const days=(pr.data&&pr.data.days)||[];const resolved=pr.data?Object.keys(pr.data.done||{}).length:0;
+    const practicedWeek=days.filter(d=>d>=ws).length;
+    body=`<div class="card"><div class="spread"><h3>${esc(m.display_name||m.email)} this week</h3><span class="tid">Week of ${nice(ws)}</span></div>
+      <div class="score"><div><b>${c("applied")}</b><span>Applications</span></div><div><b>${c("reply")}</b><span>Replies</span></div><div><b>${c("interview")}</b><span>Interviews</span></div><div><b>${c("offer")}</b><span>Offers</span></div></div>
+      <p class="muted">Practiced ${practicedWeek} ${practicedWeek===1?"day":"days"} this week · ${resolved} of ${T.length} tickets resolved</p></div>
+    <div class="card"><h3>Jobs</h3>${JOBS.map(j=>{const r=stById[j.id];const s=r?r.status:"To apply";
+      return `<div class="spread"><span><b>${esc(j.company)}</b> · ${esc(j.role)}${r&&r.applied_at?` <span class="muted">· applied ${nice(r.applied_at)}</span>`:""}</span><span class="row"><span class="pill ${s==="To apply"?"open":"done"}">${esc(s)}</span><button class="btn small" data-archive="${esc(j.id)}">Archive</button></span></div>`}).join("")||`<p class="muted">No active jobs.</p>`}</div>
+    <div class="card"><h3>Outreach</h3><p class="muted">${ppl.length} contacts · ${byStatus("To message")} to message · ${byStatus("Messaged")} messaged · ${byStatus("Replied")} replied · ${byStatus("Referral")} referrals</p>
+      ${ppl.filter(p=>p.source==="Assigned").map(p=>`<div class="spread"><span>${esc(p.first)} ${esc(p.last)} · <span class="muted">${esc(p.company||"")}</span></span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>`).join("")}</div>
+    <div class="card"><h3>Send him a contact to reach out to</h3>
+      <div class="row"><label class="field" for="xFirst">First name<input id="xFirst"></label><label class="field" for="xLast">Last name<input id="xLast"></label></div>
+      <div class="row"><label class="field" for="xCo">Company<input id="xCo"></label><label class="field" for="xPos">Role<input id="xPos"></label></div>
+      <label class="field" for="xUrl">LinkedIn profile link<input id="xUrl" inputmode="url"></label><button class="btn primary" id="xAdd">Add to his People list</button></div>`}
+  v.innerHTML=`${members.length>1?`<label class="field" for="mSel">Viewing<select id="mSel">${members.map(x=>`<option value="${esc(x.user_id)}"${x.user_id===adminMember?" selected":""}>${esc(x.display_name||x.email)}</option>`).join("")}</select></label>`:""}
+  ${body}
+  <div class="card"><h3>Add a vetted job</h3><p class="muted">It appears on the Jobs tab for everyone right away.</p>
+    <div class="row"><label class="field" for="vCo">Company<input id="vCo"></label><label class="field" for="vRole">Role<input id="vRole"></label></div>
+    <div class="row"><label class="field" for="vMatch">Match %<input id="vMatch" inputmode="numeric"></label><label class="field" for="vPay">Pay<input id="vPay"></label></div>
+    <label class="field" for="vWhere">Where<input id="vWhere"></label><label class="field" for="vUrl">Posting link<input id="vUrl" inputmode="url"></label>
+    <label class="field" for="vResume">Resume file name<input id="vResume"></label>
+    <label class="field" for="vWhy">Why it fits<textarea id="vWhy"></textarea></label><label class="field" for="vWatch">Watch out for<textarea id="vWatch"></textarea></label>
+    <button class="btn primary" id="vAdd">Add job</button></div>`;
+  const sel=$("#mSel");if(sel)sel.onchange=e=>{adminMember=e.target.value;renderAdmin()};
+  v.querySelectorAll("[data-archive]").forEach(b=>b.onclick=async()=>{if(!b.dataset.armed){b.dataset.armed=1;b.textContent="Tap to confirm";return}
+    const {error}=await sb.from("jobs").update({active:false}).eq("id",b.dataset.archive);if(error){fail(error);return}JOBS=JOBS.filter(j=>j.id!==b.dataset.archive);toast("Archived");renderAdmin()});
+  const xa=$("#xAdd");if(xa)xa.onclick=async()=>{const p={id:"a"+Date.now().toString(36),user_id:m.user_id,first:$("#xFirst").value.trim(),last:$("#xLast").value.trim(),company:$("#xCo").value.trim(),position:$("#xPos").value.trim(),url:$("#xUrl").value.trim(),status:"To message",source:"Assigned"};
+    if(!p.first){toast("Add at least a first name");return}const {error}=await sb.from("people").insert(p);if(error){fail(error);return}toast("Added to his list");renderAdmin()};
+  $("#vAdd").onclick=async()=>{const co=$("#vCo").value.trim(),ro=$("#vRole").value.trim();if(!co||!ro){toast("Add a company and a role");return}
+    const row={id:(co+"-"+ro).toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,40)+"-"+Date.now().toString(36).slice(-4),company:co,role:ro,match:parseInt($("#vMatch").value)||null,pay:$("#vPay").value.trim()||null,location:$("#vWhere").value.trim()||null,url:$("#vUrl").value.trim()||null,resume:$("#vResume").value.trim()||null,why:$("#vWhy").value.trim()||null,watch:$("#vWatch").value.trim()||null};
+    const {error}=await sb.from("jobs").insert(row);if(error){fail(error);return}JOBS.push(jobFrom({...row,added:today()}));toast("Job added");renderAdmin()};
+}
+
+/* ---------- sign in ---------- */
+function showApp(on){$(".tabs").hidden=!on;$("#auth").hidden=on;Object.keys(views).forEach(k=>$("#"+k).hidden=!on||k!==tab);$("#signOut").hidden=!on&&!ME}
+function renderAuth(mode,msg){
+  showApp(false);const v=$("#auth");
+  if(!sb){v.innerHTML=`<div class="card"><h3>Can't reach the sign-in service</h3><p class="muted">Check your internet connection, then reload the app.</p></div>`;return}
+  if(mode==="notmember"){v.innerHTML=`<div class="card"><h3>This account isn't on the list yet</h3><p class="muted">Signed in as ${esc(ME.email)}. Ask Ari to add this email, then reload.</p></div>`;$("#signOut").hidden=false;return}
+  if(mode==="reset"){v.innerHTML=`<div class="card"><h3>Set a new password</h3><label class="field" for="npw">New password<input type="password" id="npw" autocomplete="new-password"></label><button class="btn primary" id="npwGo">Save password</button></div>`;
+    $("#npwGo").onclick=async()=>{const {error}=await sb.auth.updateUser({password:$("#npw").value});if(error){toast(error.message);return}toast("Password updated");boot()};return}
+  v.innerHTML=`<div class="card"><h3>${mode==="signup"?"Create your account":"Sign in"}</h3>
+    ${msg?`<div class="nudge">${esc(msg)}</div>`:""}
+    <label class="field" for="em">Email<input type="email" id="em" autocomplete="email" inputmode="email"></label>
+    <label class="field" for="pw">Password<input type="password" id="pw" autocomplete="${mode==="signup"?"new-password":"current-password"}"></label>
+    <button class="btn primary" id="go">${mode==="signup"?"Create account":"Sign in"}</button>
+    <div class="row"><button class="btn small" id="swap">${mode==="signup"?"I already have an account":"Create an account"}</button>${mode==="signup"?"":`<button class="btn small" id="forgot">Forgot password</button>`}</div>
+    <p class="muted">Your progress, jobs and contacts sync across your phone and computer.</p></div>`;
+  $("#swap").onclick=()=>renderAuth(mode==="signup"?"signin":"signup");
+  const fg=$("#forgot");if(fg)fg.onclick=async()=>{const em=$("#em").value.trim();if(!em){toast("Enter your email first");return}
+    const {error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:location.origin});if(error){toast(error.message);return}renderAuth("signin","Check your email for a reset link.")};
+  $("#go").onclick=async()=>{const email=$("#em").value.trim(),password=$("#pw").value;if(!email||!password){toast("Enter your email and password");return}
+    $("#go").disabled=true;
+    if(mode==="signup"){const {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin}});$("#go").disabled=false;
+      if(error){toast(error.message);return}if(!data.session){renderAuth("signin","Check your email and tap the confirm link. Then come back here and sign in.");return}}
+    else{const {error}=await sb.auth.signInWithPassword({email,password});$("#go").disabled=false;if(error){toast(error.message==="Invalid login credentials"?"Wrong email or password":error.message);return}}};
+}
+async function enter(user){
+  ME=user;const res=await sb.from("members").select("email,role,display_name");const error=res.error;
+  const data=(res.data||[]).find(r=>r.email.toLowerCase()===(user.email||"").toLowerCase());
+  if(error){toast("Couldn't check your account. Try again.");return}
+  if(!data){renderAuth("notmember");return}
+  ROLE=data.role;$("#who").textContent="Signed in as "+user.email;$("#who").hidden=false;
+  document.querySelector('[data-tab="admin"]').hidden=ROLE!=="admin";
+  showApp(true);$("#signOut").hidden=false;await loadAll()}
+async function boot(){
+  if(!sb){renderAuth("signin");return}
+  const {data:{session}}=await sb.auth.getSession();
+  if(session)enter(session.user);else renderAuth("signin");
+}
+if(sb)sb.auth.onAuthStateChange((ev,session)=>{
+  if(ev==="PASSWORD_RECOVERY"){ME=session&&session.user;renderAuth("reset");return}
+  if(ev==="SIGNED_IN"&&session&&(!ME||ME.id!==session.user.id))enter(session.user);
+  if(ev==="SIGNED_OUT"){ME=null;ROLE=null;$("#who").hidden=true;renderAuth("signin")}});
+$("#signOut").onclick=()=>sb&&sb.auth.signOut();
+
+const views={today:renderToday,jobs:renderJobs,people:renderPeople,practice:renderPractice,week:renderWeek,admin:renderAdmin};
 let tab="today";
 function renderAll(){views[tab]()}
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));
   Object.keys(views).forEach(k=>$("#"+k).hidden=k!==tab);if(tab==="jobs")openJob=null;if(tab==="people")openPerson=null;if(tab==="practice")current=null;renderAll();window.scrollTo(0,0)});
-renderToday();loadJobs();
+boot();
 if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}))}
 </script>
 </body>
