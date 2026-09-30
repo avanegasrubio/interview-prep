@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f6e74">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Interview Reps">
+<meta name="apple-mobile-web-app-title" content="Interview Prep">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<title>Edwin's Interview Reps</title>
+<title>Edwin's Interview Prep</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -96,8 +96,8 @@ audio{width:100%}
 <body>
 <div class="wrap">
   <header>
-    <div class="spread"><span class="eyebrow">Support queue · interview reps</span><button class="btn small" id="signOut" hidden>Sign out</button></div>
-    <h1>Edwin's Interview Reps</h1>
+    <div class="spread"><span class="eyebrow">Support queue · interview prep</span><button class="btn small" id="signOut" hidden>Sign out</button></div>
+    <h1>Edwin's Interview Prep</h1>
     <p class="muted" id="who" hidden></p>
   </header>
 
@@ -473,11 +473,11 @@ function downloadIcs(){
   const stamp=now.toISOString().replace(/[-:]/g,"").split(".")[0]+"Z";const url=location.origin;
   const byday=D.remind.days==="all"?"":";BYDAY=MO,TU,WE,TH,FR";
   const ev=(uid,start,rule,sum,desc,dur)=>["BEGIN:VEVENT","UID:"+uid+"@interview-reps","DTSTAMP:"+stamp,"DTSTART:"+start,"DURATION:"+dur,"RRULE:"+rule,"SUMMARY:"+sum,"DESCRIPTION:"+desc,"URL:"+url,"BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+sum,"TRIGGER:PT0M","END:VALARM","END:VEVENT"].join("\r\n");
-  const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Interview Reps//EN","CALSCALE:GREGORIAN",
-    ev("study-"+Date.now(),ds+"T"+hh+mm+"00","FREQ=DAILY"+byday,"15 min interview reps","One ticket, answered out loud. Open "+url,"PT15M"),
+  const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Interview Prep//EN","CALSCALE:GREGORIAN",
+    ev("study-"+Date.now(),ds+"T"+hh+mm+"00","FREQ=DAILY"+byday,"15 min interview prep","One ticket, answered out loud. Open "+url,"PT15M"),
     ev("apply-"+Date.now(),ss+"T100000","FREQ=WEEKLY;BYDAY=SA","Send this week's applications","Open the Jobs tab and send at least 3. "+url,"PT45M"),
     "END:VCALENDAR"].join("\r\n");
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([ics],{type:"text/calendar"}));a.download="interview-reps-reminders.ics";document.body.appendChild(a);a.click();a.remove();
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([ics],{type:"text/calendar"}));a.download="interview-prep-reminders.ics";document.body.appendChild(a);a.click();a.remove();
   toast("Open the file to add the reminders")}
 
 /* ---------- tabs ---------- */

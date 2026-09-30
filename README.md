@@ -1,4 +1,4 @@
-# Edwin's Interview Reps
+# Edwin's Interview Prep
 
 A small study app: 20 technical interview questions and 6 STAR stories, one "ticket" a day, with progress and a streak.
 
