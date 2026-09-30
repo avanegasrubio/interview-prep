@@ -204,6 +204,7 @@ async function loadAll(){
     sb.from("people").select("*").eq("user_id",ME.id),
     sb.from("events").select("*").eq("user_id",ME.id).order("at"),
     sb.from("practice").select("*").eq("user_id",ME.id).maybeSingle()]);
+  loadEmail();
   if(j.error){toast("Couldn't load. Showing what's saved on this phone.");JOBS=load("edwin-jobs-cache",[]);renderAll();return}
   JOBS=j.data.map(jobFrom);save("edwin-jobs-cache",JOBS);
   const migrated=load("edwin-migrated-"+ME.id,false);
@@ -222,7 +223,7 @@ async function loadAll(){
   D.events=(ev.data||[]).map(r=>({type:r.type,label:r.label,at:r.at}));
   if(pr.data){S.done=pr.data.done||{};S.days=pr.data.days||[];D.remind=pr.data.remind||D.remind}
   save(KEY,S);saveD();renderAll()}
-const STAGES=["To apply","Applied","Replied","Interview","Offer","Passed"];
+const STAGES=["To apply","Applied","Replied","Interview","Offer","Rejected","Passed"];
 const jstate=id=>D.jobs[id]||(D.jobs[id]={status:"To apply"});
 function setJobStatus(job,status){const st=jstate(job.id);const prev=st.status;st.status=status;
   const map={Applied:"applied",Replied:"reply",Interview:"interview",Offer:"offer"};
@@ -233,6 +234,36 @@ function followUpsDue(){
   JOBS.forEach(j=>{const s=jstate(j.id);if(s.status==="Applied"&&daysSince(s.appliedAt)>=7&&!s.followedUp)out.push({kind:"job",j,d:daysSince(s.appliedAt)})});
   D.people.forEach(p=>{if(p.status==="Messaged"&&daysSince(p.messagedAt)>=5&&!p.followedUp)out.push({kind:"person",p,d:daysSince(p.messagedAt)})});
   return out}
+
+/* ---------- Gmail ---------- */
+let EMAILS=[],GMAIL=null;
+const KIND={applied:["Application received","done"],reply:["Recruiter reply","done"],interview:["Interview","done"],offer:["Offer","done"],rejected:["Not moving forward","info"]};
+async function loadEmail(){if(!sb||!ME)return;
+  const [g,e]=await Promise.all([sb.rpc("gmail_status"),sb.from("email_updates").select("*").eq("user_id",ME.id).eq("dismissed",false).order("received_at",{ascending:false}).limit(40)]);
+  GMAIL=g.data&&g.data[0]||{connected:false};EMAILS=e.data||[];if(tab==="today"||tab==="jobs")renderAll()}
+async function connectGmail(){const {data,error}=await sb.functions.invoke("gmail-connect",{body:{}});
+  if(error||!data||!data.url){let msg="Couldn't start the Gmail connection.";try{const b=await error.context.json();if(b.error)msg=b.error}catch(_){}toast(msg);return}
+  location.href=data.url}
+async function checkEmail(btn){if(btn){btn.disabled=true;btn.textContent="Checking..."}
+  const {data,error}=await sb.functions.invoke("gmail-sync",{body:{}});
+  if(btn){btn.disabled=false;btn.textContent="Check my email now"}
+  if(error||!data){toast("Couldn't check email. Try again in a minute.");return}
+  if(data.reconnect){toast("Gmail needs to be reconnected");await loadEmail();return}
+  toast(data.added?`${data.added} new job ${data.added===1?"email":"emails"} found`:"No new job emails");await loadAll()}
+function emailRow(m,dismiss){const k=KIND[m.kind]||["Email","info"];
+  return `<div class="card" style="gap:6px"><div class="spread"><span class="pill ${k[1]}">${k[0]}</span><span class="tid">${m.received_at?nice(m.received_at.slice(0,10)):""}</span></div>
+  <p><b>${esc(m.company_guess||"Unknown company")}</b> · ${esc(m.subject||"")}</p><p class="muted">${esc((m.snippet||"").slice(0,160))}</p>
+  ${dismiss?`<div class="row"><button class="btn small" data-dismiss="${m.id}">Hide</button></div>`:""}</div>`}
+function gmailCard(){
+  if(!sb||!ME||!GMAIL)return "";
+  if(!GMAIL.connected)return `<div class="card"><h3>Connect Gmail</h3><p class="muted">The app reads only job emails (application confirmations, recruiter replies, interviews and rejections) and updates your jobs and scoreboard for you. It can't send, delete or change anything.</p><button class="btn primary" id="gConnect">Connect Gmail</button></div>`;
+  const recent=EMAILS.slice(0,5);
+  return `<div class="card"><div class="spread"><h3>Gmail</h3><span class="pill done">Connected</span></div>
+    <p class="muted">${esc(GMAIL.gmail_address||"")}${GMAIL.last_sync_at?` · last checked ${new Date(GMAIL.last_sync_at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}`:" · not checked yet"}. Checks automatically every morning and evening.</p>
+    <button class="btn" id="gSync">Check my email now</button></div>
+  ${recent.length?`<h2>From your inbox</h2>${recent.map(m=>emailRow(m,true)).join("")}`:""}`}
+function bindGmail(v){const c=v.querySelector("#gConnect");if(c)c.onclick=connectGmail;const g=v.querySelector("#gSync");if(g)g.onclick=()=>checkEmail(g);
+  v.querySelectorAll("[data-dismiss]").forEach(b=>b.onclick=async()=>{const id=+b.dataset.dismiss;await sb.from("email_updates").update({dismissed:true}).eq("id",id);EMAILS=EMAILS.filter(m=>m.id!==id);renderAll()})}
 
 /* ---------- TODAY ---------- */
 function dailyIndex(){const open=T.map((_,i)=>i).filter(i=>!S.done[i]);const pool=open.length?open:T.map((_,i)=>i);let h=0;for(const c of today())h=(h*31+c.charCodeAt(0))%9973;return pool[h%pool.length]}
@@ -254,13 +285,14 @@ function renderToday(){
     <div class="check ${didApply?"on":""}"><span class="box">${didApply?"✓":""}</span>Send 1 application</div>
     <p class="muted">Tired day? This is all it takes. Anything more is a bonus.</p></div>
   ${fuHtml}
+  ${gmailCard()}
   <div class="stats"><div class="stat"><b>${Object.keys(S.done).length} / ${T.length}</b><span>tickets resolved</span></div><div class="stat"><b>${streak()} ${streak()===1?"day":"days"}</b><span>practice streak</span></div></div>
   <div id="todayTicket"></div>
   <div class="card"><h3>Phone reminders</h3><p class="muted">Adds a daily study reminder and a Saturday "send applications" reminder to your phone's calendar. Your calendar sends the notifications.</p>
     <div class="row"><label class="field" for="rTime">Study reminder time<input type="time" id="rTime" value="${esc(D.remind.time)}"></label>
     <label class="field" for="rDays">Days<select id="rDays"><option value="work"${D.remind.days==="work"?" selected":""}>Weekdays</option><option value="all"${D.remind.days==="all"?" selected":""}>Every day</option></select></label></div>
     <button class="btn primary" id="ics">Add reminders to my calendar</button></div>`;
-  renderTicket(i,$("#todayTicket"),()=>renderToday());
+  renderTicket(i,$("#todayTicket"),()=>renderToday());bindGmail(v);
   v.querySelectorAll("[data-fu-job]").forEach(b=>b.onclick=()=>{jstate(b.dataset.fuJob).followedUp=today();saveD();syncStatus(b.dataset.fuJob);renderAll();toast("Follow-up logged")});
   v.querySelectorAll("[data-fu-person]").forEach(b=>b.onclick=()=>{const p=D.people.find(x=>x.id===b.dataset.fuPerson);if(p){p.followedUp=today();saveD();syncPerson(p);renderAll();toast("Follow-up logged")}});
   $("#rTime").onchange=e=>{D.remind.time=e.target.value;saveD();syncPractice()};
@@ -305,10 +337,10 @@ function peopleAt(company){const c=company.toLowerCase();return D.people.filter(
 function renderJobs(){
   const v=$("#jobs");
   if(openJob){const j=JOBS.find(x=>x.id===openJob);if(j){renderJob(j,v);return}openJob=null}
-  const order=s=>({"Interview":0,"Offer":0,"Replied":1,"To apply":2,"Applied":3,"Passed":4})[s]??5;
+  const order=s=>({"Interview":0,"Offer":0,"Replied":1,"To apply":2,"Applied":3,"Rejected":4,"Passed":5})[s]??6;
   const list=[...JOBS].sort((a,b)=>order(jstate(a.id).status)-order(jstate(b.id).status)||(b.match||0)-(a.match||0));
   v.innerHTML=`<p class="muted">Vetted roles, best match first. Tap one for the details, your resume name, and people you know there.</p>`+
-  list.map(j=>{const s=jstate(j.id);const pk=s.status==="To apply"?"open":(s.status==="Passed"?"info":"done");const n=peopleAt(j.company).length;
+  list.map(j=>{const s=jstate(j.id);const pk=s.status==="To apply"?"open":(s.status==="Passed"||s.status==="Rejected"?"info":"done");const n=peopleAt(j.company).length;
     return `<button class="item" data-job="${esc(j.id)}"><span class="t"><b>${esc(j.company)}</b> · ${esc(j.role)}<br><span class="muted">${j.match?esc(j.match)+"% match · ":""}${esc(j.pay||"")}${n?` · ${n} ${n===1?"contact":"contacts"}`:""}</span></span><span class="pill ${pk}">${esc(s.status)}</span></button>`}).join("")+
   `<div class="card"><h3>Add a job you found</h3><div class="row"><label class="field" for="nCo">Company<input id="nCo"></label><label class="field" for="nRole">Role<input id="nRole"></label></div>
   <label class="field" for="nUrl">Job link<input id="nUrl" inputmode="url"></label><button class="btn" id="addJob">Add job</button></div>`;
@@ -329,6 +361,7 @@ function renderJob(j,v){
   ${j.url?`<a class="btn primary" href="${esc(j.url)}" target="_blank" rel="noopener">Open the posting</a>`:""}
   <label class="field" for="jStatus">Status<select id="jStatus">${STAGES.map(x=>`<option${x===s.status?" selected":""}>${x}</option>`).join("")}</select></label>
   <label class="field" for="jNotes">Notes<textarea id="jNotes" placeholder="Recruiter name, interview date, what they asked...">${esc(s.notes||"")}</textarea></label></article>
+  ${EMAILS.filter(m=>m.job_id===j.id).length?`<h2>Emails about this job</h2>${EMAILS.filter(m=>m.job_id===j.id).map(m=>emailRow(m,false)).join("")}`:""}
   <div class="card"><h3>People you know at ${esc(j.company)}</h3>${ppl.length?ppl.map(p=>`<div class="spread"><span>${esc(p.first)} ${esc(p.last)} · <span class="muted">${esc(p.position||"")}</span></span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>`).join(""):`<p class="muted">No one yet. Import your LinkedIn connections on the People tab, or add someone you find.</p>`}</div>`;
   $("#backJobs").onclick=()=>{openJob=null;renderJobs()};
   $("#jStatus").onchange=e=>setJobStatus(j,e.target.value);
@@ -422,7 +455,7 @@ function weekCounts(){const ws=weekStart();const ev=D.events.filter(e=>e.at>=ws)
 function renderWeek(){const v=$("#week");const w=weekCounts();const ws=weekStart();
   const text=`Week of ${nice(ws)}\nApplications: ${w.a}\nRecruiter replies: ${w.r}\nInterviews: ${w.i}\nOffers: ${w.o}`;
   const recent=[...D.events].reverse().slice(0,12);
-  const label={applied:"Applied",reply:"Reply",interview:"Interview",offer:"Offer"};
+  const label={applied:"Applied",reply:"Reply",interview:"Interview",offer:"Offer",rejected:"Not moving forward"};
   v.innerHTML=`<div class="card"><div class="spread"><h3>Scoreboard</h3><span class="tid">Week of ${nice(ws)}</span></div>
   <div class="score"><div><b>${w.a}</b><span>Applications</span></div><div><b>${w.r}</b><span>Replies</span></div><div><b>${w.i}</b><span>Interviews</span></div><div><b>${w.o}</b><span>Offers</span></div></div>
   <button class="btn primary" id="cpScore">Copy scoreboard</button></div>
@@ -462,11 +495,12 @@ async function renderAdmin(){
   if(!m){body=`<div class="card"><h3>Waiting for Edwin</h3><p class="muted">He shows up here once he creates his account with his email on the sign-in screen.</p></div>`}
   else{
     const ws=weekStart();
-    const [st,ev,pp,pr]=await Promise.all([
+    const [st,ev,pp,pr,em]=await Promise.all([
       sb.from("job_status").select("*").eq("user_id",m.user_id),
       sb.from("events").select("*").eq("user_id",m.user_id).gte("at",ws),
       sb.from("people").select("*").eq("user_id",m.user_id),
-      sb.from("practice").select("*").eq("user_id",m.user_id).maybeSingle()]);
+      sb.from("practice").select("*").eq("user_id",m.user_id).maybeSingle(),
+      sb.from("email_updates").select("*").eq("user_id",m.user_id).order("received_at",{ascending:false}).limit(8)]);
     const c=t=>(ev.data||[]).filter(e=>e.type===t).length;
     const stById={};(st.data||[]).forEach(r=>stById[r.job_id]=r);
     const ppl=pp.data||[];const byStatus=k=>ppl.filter(p=>p.status===k).length;
@@ -479,6 +513,7 @@ async function renderAdmin(){
       return `<div class="spread"><span><b>${esc(j.company)}</b> · ${esc(j.role)}${r&&r.applied_at?` <span class="muted">· applied ${nice(r.applied_at)}</span>`:""}</span><span class="row"><span class="pill ${s==="To apply"?"open":"done"}">${esc(s)}</span><button class="btn small" data-archive="${esc(j.id)}">Archive</button></span></div>`}).join("")||`<p class="muted">No active jobs.</p>`}</div>
     <div class="card"><h3>Outreach</h3><p class="muted">${ppl.length} contacts · ${byStatus("To message")} to message · ${byStatus("Messaged")} messaged · ${byStatus("Replied")} replied · ${byStatus("Referral")} referrals</p>
       ${ppl.filter(p=>p.source==="Assigned").map(p=>`<div class="spread"><span>${esc(p.first)} ${esc(p.last)} · <span class="muted">${esc(p.company||"")}</span></span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>`).join("")}</div>
+    <div class="card"><h3>From his inbox</h3>${(em.data||[]).length?(em.data||[]).map(x=>{const k=KIND[x.kind]||["Email","info"];return `<div class="spread"><span><b>${esc(x.company_guess||"Unknown")}</b> · <span class="muted">${esc((x.subject||"").slice(0,70))}</span></span><span class="pill ${k[1]}">${k[0]}</span></div>`}).join(""):`<p class="muted">No job emails yet. They show up once he connects Gmail.</p>`}</div>
     <div class="card"><h3>Send him a contact to reach out to</h3>
       <div class="row"><label class="field" for="xFirst">First name<input id="xFirst"></label><label class="field" for="xLast">Last name<input id="xLast"></label></div>
       <div class="row"><label class="field" for="xCo">Company<input id="xCo"></label><label class="field" for="xPos">Role<input id="xPos"></label></div>
@@ -533,7 +568,12 @@ async function enter(user){
   if(!data){renderAuth("notmember");return}
   ROLE=data.role;$("#who").textContent="Signed in as "+user.email;$("#who").hidden=false;
   document.querySelector('[data-tab="admin"]').hidden=ROLE!=="admin";
-  showApp(true);$("#signOut").hidden=false;await loadAll()}
+  showApp(true);$("#signOut").hidden=false;await loadAll();
+  if(gParam==="connected"){toast("Gmail connected. Checking your inbox...");checkEmail(null)}
+  else if(gParam==="cancelled")toast("Gmail wasn't connected");
+  else if(gParam==="expired"||gParam==="error")toast("Gmail connection didn't finish. Try again.")}
+const gParam=new URLSearchParams(location.search).get("gmail");
+if(gParam)history.replaceState(null,"",location.pathname);
 async function boot(){
   if(!sb){renderAuth("signin");return}
   const {data:{session}}=await sb.auth.getSession();

@@ -28,3 +28,11 @@ Edit index.html, then bump CACHE in sw.js (for example interview-reps-v2) so pho
 - Week: applications, replies, interviews and offers for the week, with a copy button.
 
 This repo is public. Never commit personal details (contacts, phone numbers, emails) to it.
+
+## Gmail
+Members can connect Gmail (read-only) from the Today tab. Server code is in supabase/functions:
+- gmail-connect: starts the Google consent flow
+- gmail-callback: stores the connection (tokens never reach the app)
+- gmail-sync: finds job emails, sorts them (applied, reply, interview, offer, rejected), matches them to jobs, and updates statuses and the scoreboard. Runs on demand and at 8am and 6pm New York time.
+
+Google credentials live only in Supabase secrets (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET), never in this repo.
