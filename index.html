@@ -432,7 +432,7 @@ function renderPeople(){
   v.innerHTML=`${D.people.length?"":`<div class="card"><h3>Bring in your LinkedIn connections</h3>
     <ol class="muted" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px"><li>On LinkedIn: Settings, then Data privacy, then Get a copy of your data.</li><li>Pick Connections and request it. LinkedIn emails a download link, usually within minutes.</li><li>Unzip it and choose Connections.csv below.</li></ol></div>`}
   <div class="card"><div class="row"><label class="btn primary" for="csv" style="cursor:pointer">Import Connections.csv</label><input type="file" id="csv" accept=".csv,text/csv" hidden></div>
-  <p class="muted">Your contacts stay on this phone. They're never uploaded anywhere.</p></div>
+  <p class="muted">Your contacts are saved to your account. Only you and Ari can see them.</p></div>
   <div class="row"><select id="pf" aria-label="Show"><option value="priority"${peopleFilter==="priority"?" selected":""}>At your target companies</option><option value="active"${peopleFilter==="active"?" selected":""}>Messaged or replied</option><option value="all"${peopleFilter==="all"?" selected":""}>Everyone</option></select></div>
   ${shown.length?shown.map(p=>{const at=JOBS.find(j=>(p.company||"").toLowerCase().includes(j.company.toLowerCase()));
     return `<button class="item" data-person="${esc(p.id)}"><span class="dot ${p.status==="To message"?"":"done"}"></span><span class="t"><b>${esc(p.first)} ${esc(p.last)}</b><br><span class="muted">${esc(p.position||"")}${p.company?" · "+esc(p.company):""}</span></span>${(()=>{const q=(p.source==="Assigned"||Object.keys(p.seq||{}).length)&&seqState(p).next;return q&&daysSince(q.due)>=0?`<span class="pill open">Step due</span>`:at?`<span class="pill info">${esc(at.company)}</span>`:""})()}</button>`}).join("")
@@ -558,12 +558,11 @@ function downloadIcs(){
 /* ---------- tabs ---------- */
 /* ---------- ADMIN ---------- */
 async function startViewAs(m){VIEWAS={user_id:m.user_id,name:m.display_name||m.email,gmail:{connected:!!m.gmail_connected,gmail_address:m.gmail_address,last_sync_at:m.gmail_last_sync},savedS:S,savedD:D};
-  S={done:{},days:[]};D={jobs:{},people:[],events:[],custom:[],remind:{time:"07:30",days:"work"}};openPerson=null;openJob=null;await loadAll();goTo("today");window.scrollTo(0,0)}
-function stopViewAs(){if(!VIEWAS)return;S=VIEWAS.savedS;D=VIEWAS.savedD;VIEWAS=null;$("#viewBar").hidden=true;openPerson=null;openJob=null;loadAll();goTo("admin");window.scrollTo(0,0)}
+  S={done:{},days:[]};D={jobs:{},people:[],events:[],custom:[],remind:{time:"07:30",days:"work"}};openPerson=null;openJob=null;goTo("today");await loadAll();window.scrollTo(0,0)}
+function stopViewAs(){if(!VIEWAS)return;S=VIEWAS.savedS;D=VIEWAS.savedD;VIEWAS=null;$("#viewBar").hidden=true;openPerson=null;openJob=null;goTo("admin");loadAll();window.scrollTo(0,0)}
 let adminMember=null;
 async function renderAdmin(){
   const v=$("#admin");if(ROLE!=="admin"){v.innerHTML="";return}
-  if(VIEWAS){stopViewAs();return}
   v.innerHTML=`<p class="muted">Loading...</p>`;
   const acc=await sb.rpc("member_accounts");
   if(acc.error){v.innerHTML=`<p class="muted">Couldn't load members.</p>`;return}
@@ -685,7 +684,7 @@ $("#viewExit").onclick=stopViewAs;
 const views={today:renderToday,jobs:renderJobs,people:renderPeople,practice:renderPractice,week:renderWeek,admin:renderAdmin};
 let tab="today";
 function renderAll(){views[tab]()}
-document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{if(VIEWAS&&b.dataset.tab==="admin"){stopViewAs();return}tab=b.dataset.tab;document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));
   Object.keys(views).forEach(k=>$("#"+k).hidden=k!==tab);if(tab==="jobs")openJob=null;if(tab==="people")openPerson=null;if(tab==="practice")current=null;renderAll();window.scrollTo(0,0)});
 boot();
 if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}))}
