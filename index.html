@@ -176,7 +176,7 @@ const personFrom=r=>({id:r.id,user_id:r.user_id,first:r.first||"",last:r.last||"
 async function syncPerson(p){if(!sb||!ME)return;const {error}=await sb.from("people").upsert(personRow(p));fail(error)}
 async function syncPeopleBulk(list){if(!sb||!ME)return;for(let i=0;i<list.length;i+=400){const {error}=await sb.from("people").upsert(list.slice(i,i+400).map(personRow));if(error){fail(error);return}}}
 async function removePerson(id){if(!sb||!ME)return;const {error}=await sb.from("people").delete().eq("id",id);fail(error)}
-const jobFrom=r=>({id:r.id,company:r.company,role:r.role,match:r.match,pay:r.pay,where:r.location,url:r.url,resume:r.resume,why:r.why,watch:r.watch,added:r.added,custom:r.custom,active:r.active});
+const jobFrom=r=>({id:r.id,company:r.company,role:r.role,match:r.match,pay:r.pay,where:r.location,url:r.url,resume:r.resume,why:r.why,watch:r.watch,added:r.added,custom:r.custom,active:r.active,kit:r.kit||[]});
 
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
@@ -235,6 +235,12 @@ function followUpsDue(){
   D.people.forEach(p=>{if(p.status==="Messaged"&&daysSince(p.messagedAt)>=5&&!p.followedUp)out.push({kind:"person",p,d:daysSince(p.messagedAt)})});
   return out}
 
+function goTo(t){const b=document.querySelector(`.tabs [data-tab="${t}"]`);if(b)b.click()}
+async function downloadResume(name,btn){if(!sb||!ME)return;const orig=btn&&btn.textContent;if(btn){btn.disabled=true;btn.textContent="Getting it..."}
+  const {data,error}=await sb.storage.from("resumes").download(name+".pdf");if(btn){btn.disabled=false;btn.textContent=orig}
+  if(error||!data){toast("That resume isn't uploaded yet. Ask Ari.");return}
+  const a=document.createElement("a");a.href=URL.createObjectURL(data);a.download=name+".pdf";document.body.appendChild(a);a.click();a.remove();toast("Resume downloaded")}
+
 /* ---------- Gmail ---------- */
 let EMAILS=[],GMAIL=null;
 const KIND={applied:["Application received","done"],reply:["Recruiter reply","done"],interview:["Interview","done"],offer:["Offer","done"],rejected:["Not moving forward","info"]};
@@ -266,6 +272,20 @@ function bindGmail(v){const c=v.querySelector("#gConnect");if(c)c.onclick=connec
   v.querySelectorAll("[data-dismiss]").forEach(b=>b.onclick=async()=>{const id=+b.dataset.dismiss;await sb.from("email_updates").update({dismissed:true}).eq("id",id);EMAILS=EMAILS.filter(m=>m.id!==id);renderAll()})}
 
 /* ---------- TODAY ---------- */
+function planCard(didTicket,didApply){
+  const nextJob=JOBS.filter(j=>jstate(j.id).status==="To apply").sort((a,b)=>(b.match||0)-(a.match||0))[0];
+  const nextPerson=D.people.filter(p=>p.status==="To message").sort((a,b)=>((b.source==="Assigned")-(a.source==="Assigned"))||score(b)-score(a))[0];
+  const didMsg=D.people.some(p=>p.messagedAt===today());
+  const row=(on,text,btn,attr)=>`<div class="spread"><div class="check ${on?"on":""}"><span class="box">${on?"✓":""}</span><span>${text}</span></div>${btn&&!on?`<button class="btn small" ${attr}>${btn}</button>`:""}</div>`;
+  return `<div class="card"><h3>Today's plan</h3>
+    ${row(didApply,nextJob?`Apply to <b>${esc(nextJob.company)}</b> · ${esc(nextJob.role)}`:"Send 1 application",nextJob?"Open":"",nextJob?`data-plan-job="${esc(nextJob.id)}"`:"")}
+    ${row(didMsg,nextPerson?`Message <b>${esc(nextPerson.first)} ${esc(nextPerson.last)}</b>${nextPerson.company?" at "+esc(nextPerson.company):""}`:"Message 1 person",nextPerson?"Open":"",nextPerson?`data-plan-person="${esc(nextPerson.id)}"`:"")}
+    ${row(didTicket,"Practice today's ticket, out loud","Go","data-plan-ticket")}
+    <p class="muted">About 15 minutes total. On a rough day, just do one.</p></div>`}
+function bindPlan(v){
+  v.querySelectorAll("[data-plan-job]").forEach(b=>b.onclick=()=>{goTo("jobs");openJob=b.dataset.planJob;renderJobs()});
+  v.querySelectorAll("[data-plan-person]").forEach(b=>b.onclick=()=>{goTo("people");openPerson=b.dataset.planPerson;renderPeople()});
+  v.querySelectorAll("[data-plan-ticket]").forEach(b=>b.onclick=()=>{const t=$("#todayTicket");if(t)t.scrollIntoView({behavior:"smooth"})})}
 function dailyIndex(){const open=T.map((_,i)=>i).filter(i=>!S.done[i]);const pool=open.length?open:T.map((_,i)=>i);let h=0;for(const c of today())h=(h*31+c.charCodeAt(0))%9973;return pool[h%pool.length]}
 function renderToday(){
   const v=$("#today");const didTicket=S.days.includes(today());const didApply=D.events.some(e=>e.type==="applied"&&e.at===today());
@@ -280,10 +300,7 @@ function renderToday(){
     <p class="muted">A short, friendly check-in is enough. Mark it done once you've sent it.</p></div>`:"";
   const i=dailyIndex();
   v.innerHTML=`${nudge}
-  <div class="card"><h3>Today's minimum</h3>
-    <div class="check ${didTicket?"on":""}"><span class="box">${didTicket?"✓":""}</span>Practice 1 ticket</div>
-    <div class="check ${didApply?"on":""}"><span class="box">${didApply?"✓":""}</span>Send 1 application</div>
-    <p class="muted">Tired day? This is all it takes. Anything more is a bonus.</p></div>
+  ${planCard(didTicket,didApply)}
   ${fuHtml}
   ${gmailCard()}
   <div class="stats"><div class="stat"><b>${Object.keys(S.done).length} / ${T.length}</b><span>tickets resolved</span></div><div class="stat"><b>${streak()} ${streak()===1?"day":"days"}</b><span>practice streak</span></div></div>
@@ -292,7 +309,7 @@ function renderToday(){
     <div class="row"><label class="field" for="rTime">Study reminder time<input type="time" id="rTime" value="${esc(D.remind.time)}"></label>
     <label class="field" for="rDays">Days<select id="rDays"><option value="work"${D.remind.days==="work"?" selected":""}>Weekdays</option><option value="all"${D.remind.days==="all"?" selected":""}>Every day</option></select></label></div>
     <button class="btn primary" id="ics">Add reminders to my calendar</button></div>`;
-  renderTicket(i,$("#todayTicket"),()=>renderToday());bindGmail(v);
+  renderTicket(i,$("#todayTicket"),()=>renderToday());bindGmail(v);bindPlan(v);
   v.querySelectorAll("[data-fu-job]").forEach(b=>b.onclick=()=>{jstate(b.dataset.fuJob).followedUp=today();saveD();syncStatus(b.dataset.fuJob);renderAll();toast("Follow-up logged")});
   v.querySelectorAll("[data-fu-person]").forEach(b=>b.onclick=()=>{const p=D.people.find(x=>x.id===b.dataset.fuPerson);if(p){p.followedUp=today();saveD();syncPerson(p);renderAll();toast("Follow-up logged")}});
   $("#rTime").onchange=e=>{D.remind.time=e.target.value;saveD();syncPractice()};
@@ -359,11 +376,20 @@ function renderJob(j,v){
   <dl class="kv">${j.pay?`<dt>Pay</dt><dd>${esc(j.pay)}</dd>`:""}${j.where?`<dt>Where</dt><dd>${esc(j.where)}</dd>`:""}${j.resume?`<dt>Resume</dt><dd>${esc(j.resume)}</dd>`:""}${dates}</dl>
   ${j.why?`<p><b>Why it fits:</b> ${esc(j.why)}</p>`:""}${j.watch?`<p><b>Watch out for:</b> ${esc(j.watch)}</p>`:""}
   ${j.url?`<a class="btn primary" href="${esc(j.url)}" target="_blank" rel="noopener">Open the posting</a>`:""}
+  </article>
+  ${(j.resume||(j.kit&&j.kit.length))?`<div class="card"><h3>Apply kit</h3>
+    ${j.resume?`<button class="btn" id="dlResume">Download resume (PDF)</button><p class="muted">${esc(j.resume)}.pdf</p>`:""}
+    ${(j.kit||[]).map((k,i)=>`<div style="display:flex;flex-direction:column;gap:6px;border-top:1px dashed var(--line);padding-top:10px"><b>${esc(k.label)}</b><p>${esc(k.text)}</p><button class="btn small" data-kit="${i}" style="align-self:flex-start">Copy</button></div>`).join("")}
+    ${(j.kit||[]).some(k=>/\[/.test(k.text))?`<p class="muted">Parts in [brackets] need your own details before you paste them in.</p>`:""}
+  </div>`:""}
+  <article class="card">
   <label class="field" for="jStatus">Status<select id="jStatus">${STAGES.map(x=>`<option${x===s.status?" selected":""}>${x}</option>`).join("")}</select></label>
   <label class="field" for="jNotes">Notes<textarea id="jNotes" placeholder="Recruiter name, interview date, what they asked...">${esc(s.notes||"")}</textarea></label></article>
   ${EMAILS.filter(m=>m.job_id===j.id).length?`<h2>Emails about this job</h2>${EMAILS.filter(m=>m.job_id===j.id).map(m=>emailRow(m,false)).join("")}`:""}
   <div class="card"><h3>People you know at ${esc(j.company)}</h3>${ppl.length?ppl.map(p=>`<div class="spread"><span>${esc(p.first)} ${esc(p.last)} · <span class="muted">${esc(p.position||"")}</span></span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>`).join(""):`<p class="muted">No one yet. Import your LinkedIn connections on the People tab, or add someone you find.</p>`}</div>`;
   $("#backJobs").onclick=()=>{openJob=null;renderJobs()};
+  const dl=$("#dlResume");if(dl)dl.onclick=()=>downloadResume(j.resume,dl);
+  v.querySelectorAll("[data-kit]").forEach(b=>b.onclick=()=>copy(j.kit[+b.dataset.kit].text));
   $("#jStatus").onchange=e=>setJobStatus(j,e.target.value);
   $("#jNotes").onchange=e=>{s.notes=e.target.value;saveD();syncStatus(j.id);toast("Notes saved")};
 }
@@ -520,6 +546,9 @@ async function renderAdmin(){
       <label class="field" for="xUrl">LinkedIn profile link<input id="xUrl" inputmode="url"></label><button class="btn primary" id="xAdd">Add to his People list</button></div>`}
   v.innerHTML=`${members.length>1?`<label class="field" for="mSel">Viewing<select id="mSel">${members.map(x=>`<option value="${esc(x.user_id)}"${x.user_id===adminMember?" selected":""}>${esc(x.display_name||x.email)}</option>`).join("")}</select></label>`:""}
   ${body}
+  <div class="card"><h3>Resumes</h3><p class="muted">Upload PDFs named after the job's resume file name. Only you and Edwin can open them.</p>
+    <div class="row"><label class="btn" for="rUp" style="cursor:pointer">Upload resume PDFs</label><input type="file" id="rUp" accept="application/pdf" multiple hidden></div>
+    <div id="rList"><p class="muted">Loading...</p></div></div>
   <div class="card"><h3>Add a vetted job</h3><p class="muted">It appears on the Jobs tab for everyone right away.</p>
     <div class="row"><label class="field" for="vCo">Company<input id="vCo"></label><label class="field" for="vRole">Role<input id="vRole"></label></div>
     <div class="row"><label class="field" for="vMatch">Match %<input id="vMatch" inputmode="numeric"></label><label class="field" for="vPay">Pay<input id="vPay"></label></div>
@@ -528,6 +557,13 @@ async function renderAdmin(){
     <label class="field" for="vWhy">Why it fits<textarea id="vWhy"></textarea></label><label class="field" for="vWatch">Watch out for<textarea id="vWatch"></textarea></label>
     <button class="btn primary" id="vAdd">Add job</button></div>`;
   const sel=$("#mSel");if(sel)sel.onchange=e=>{adminMember=e.target.value;renderAdmin()};
+  const listResumes=async()=>{const {data}=await sb.storage.from("resumes").list("",{limit:100,sortBy:{column:"name",order:"asc"}});
+    const files=(data||[]).filter(f=>f.name.endsWith(".pdf"));const box=$("#rList");if(!box)return;
+    box.innerHTML=JOBS.map(j=>{const has=j.resume&&files.some(f=>f.name===j.resume+".pdf");return `<div class="spread"><span>${esc(j.company)}</span><span class="pill ${has?"done":"open"}">${has?"Uploaded":j.resume?"Missing":"No resume set"}</span></div>`}).join("")+
+      (files.length?`<p class="muted">${files.length} ${files.length===1?"file":"files"} stored.</p>`:"")};
+  listResumes();
+  $("#rUp").onchange=async e=>{const fs=[...e.target.files];let n=0;for(const f of fs){const {error}=await sb.storage.from("resumes").upload(f.name,f,{upsert:true,contentType:"application/pdf"});if(error)fail(error);else n++}
+    toast(n+" uploaded");listResumes()};
   v.querySelectorAll("[data-archive]").forEach(b=>b.onclick=async()=>{if(!b.dataset.armed){b.dataset.armed=1;b.textContent="Tap to confirm";return}
     const {error}=await sb.from("jobs").update({active:false}).eq("id",b.dataset.archive);if(error){fail(error);return}JOBS=JOBS.filter(j=>j.id!==b.dataset.archive);toast("Archived");renderAdmin()});
   const xa=$("#xAdd");if(xa)xa.onclick=async()=>{const p={id:"a"+Date.now().toString(36),user_id:m.user_id,first:$("#xFirst").value.trim(),last:$("#xLast").value.trim(),company:$("#xCo").value.trim(),position:$("#xPos").value.trim(),url:$("#xUrl").value.trim(),status:"To message",source:"Assigned"};
