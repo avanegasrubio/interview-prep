@@ -102,6 +102,8 @@ audio{width:100%}
     <p class="muted" id="who" hidden></p>
   </header>
 
+  <div class="nudge" id="viewBar" hidden><div class="spread"><span><b>Viewing as <span id="viewName"></span>.</b> Read-only: taps won't change his data.</span><button class="btn small" id="viewExit">Back to admin</button></div></div>
+
   <section id="auth" hidden></section>
 
   <nav class="tabs" role="tablist" aria-label="Sections" hidden>
@@ -158,25 +160,28 @@ function load(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch(e){re
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 let S=load(KEY,{}); S.done=S.done||{}; S.days=S.days||[];
 let D=load(KEY2,{}); D.jobs=D.jobs||{}; D.people=D.people||[]; D.events=D.events||[]; D.custom=D.custom||[]; D.remind=D.remind||{time:"07:30",days:"work"};
-const saveD=()=>save(KEY2,D);
-const saveS=()=>{save(KEY,S);syncPractice()};
+const saveD=()=>{if(!VIEWAS)save(KEY2,D)};
+const saveS=()=>{if(!VIEWAS){save(KEY,S);syncPractice()}};
 
 /* ---------- Supabase sync ---------- */
 const SB_URL="https://hmglutaxerbpfxzwnnbn.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtZ2x1dGF4ZXJicGZ4endubmJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3OTkwNDQsImV4cCI6MjEwNjM3NTA0NH0.Vj2RA-30UnVXIOzG-V-hAGp1M5yhPF--_VZvQlzvVWs";
 const sb=window.supabase?window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}}):null;
 let ME=null, ROLE=null;
+/* Admin "see his view": loads a member's data into the normal tabs, read-only. Nothing is written while it's on. */
+let VIEWAS=null;const uid=()=>VIEWAS?VIEWAS.user_id:ME.id;
+function ro(){if(VIEWAS){toast("Preview only. Changes aren't saved.");return true}return false}
 function fail(e){if(e){console.error(e);toast("Couldn't save. Check your connection.")}}
 let pTimer=null;
-function syncPractice(){if(!sb||!ME)return;clearTimeout(pTimer);pTimer=setTimeout(async()=>{
+function syncPractice(){if(!sb||!ME||VIEWAS)return;clearTimeout(pTimer);pTimer=setTimeout(async()=>{
   const {error}=await sb.from("practice").upsert({user_id:ME.id,done:S.done,days:S.days,remind:D.remind,updated_at:new Date().toISOString()});fail(error)},600)}
-async function syncStatus(id){if(!sb||!ME)return;const st=D.jobs[id];if(!st)return;
+async function syncStatus(id){if(!sb||!ME||ro())return;const st=D.jobs[id];if(!st)return;
   const {error}=await sb.from("job_status").upsert({user_id:ME.id,job_id:id,status:st.status,applied_at:st.appliedAt||null,reply_at:st.replyAt||null,interview_at:st.interviewAt||null,offer_at:st.offerAt||null,followed_up:st.followedUp||null,notes:st.notes||null,updated_at:new Date().toISOString()});fail(error)}
 const personRow=p=>({id:p.id,user_id:p.user_id||ME.id,first:p.first,last:p.last,company:p.company,position:p.position,url:p.url,email:p.email||null,seq:p.seq||{},status:p.status,messaged_at:p.messagedAt||null,replied_at:p.repliedAt||null,followed_up:p.followedUp||null,source:p.source||null});
 const personFrom=r=>({id:r.id,user_id:r.user_id,first:r.first||"",last:r.last||"",company:r.company||"",position:r.position||"",url:r.url||"",email:r.email||"",seq:r.seq||{},addedAt:(r.created_at||"").slice(0,10)||null,status:r.status,messagedAt:r.messaged_at,repliedAt:r.replied_at,followedUp:r.followed_up,source:r.source});
-async function syncPerson(p){if(!sb||!ME)return;const {error}=await sb.from("people").upsert(personRow(p));fail(error)}
-async function syncPeopleBulk(list){if(!sb||!ME)return;for(let i=0;i<list.length;i+=400){const {error}=await sb.from("people").upsert(list.slice(i,i+400).map(personRow));if(error){fail(error);return}}}
-async function removePerson(id){if(!sb||!ME)return;const {error}=await sb.from("people").delete().eq("id",id);fail(error)}
+async function syncPerson(p){if(!sb||!ME||ro())return;const {error}=await sb.from("people").upsert(personRow(p));fail(error)}
+async function syncPeopleBulk(list){if(!sb||!ME||ro())return;for(let i=0;i<list.length;i+=400){const {error}=await sb.from("people").upsert(list.slice(i,i+400).map(personRow));if(error){fail(error);return}}}
+async function removePerson(id){if(!sb||!ME||ro())return;const {error}=await sb.from("people").delete().eq("id",id);fail(error)}
 const jobFrom=r=>({id:r.id,company:r.company,role:r.role,match:r.match,pay:r.pay,where:r.location,url:r.url,resume:r.resume,why:r.why,watch:r.watch,added:r.added,custom:r.custom,active:r.active,kit:r.kit||[],linkedin:r.linkedin});
 
 /* ---------- helpers ---------- */
@@ -190,7 +195,7 @@ const nice=iso=>iso?new Date(iso+"T00:00:00").toLocaleDateString(undefined,{mont
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2200)}
 async function copy(text){try{await navigator.clipboard.writeText(text);toast("Copied")}catch(e){const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Copied")}catch(_){toast("Select the text and copy it")}ta.remove()}}
 function logEvent(type,label){const e={type,label,at:today()};D.events.push(e);saveD();
-  if(sb&&ME)sb.from("events").insert({user_id:ME.id,type,label,at:e.at}).then(({error})=>fail(error))}
+  if(sb&&ME&&!ro())sb.from("events").insert({user_id:ME.id,type,label,at:e.at}).then(({error})=>fail(error))}
 function markPracticed(){if(!S.days.includes(today()))S.days.push(today());saveS()}
 function streak(){const set=new Set(S.days);let n=0;const d=new Date();if(!set.has(today()))d.setDate(d.getDate()-1);while(set.has(dkey(d))){n++;d.setDate(d.getDate()-1)}return n}
 function weekStart(){const d=new Date();const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);return dkey(d)}
@@ -201,14 +206,14 @@ async function loadAll(){
   if(!sb||!ME){JOBS=load("edwin-jobs-cache",[]);renderAll();return}
   const [j,st,pp,ev,pr]=await Promise.all([
     sb.from("jobs").select("*").eq("active",true),
-    sb.from("job_status").select("*").eq("user_id",ME.id),
-    sb.from("people").select("*").eq("user_id",ME.id),
-    sb.from("events").select("*").eq("user_id",ME.id).order("at"),
-    sb.from("practice").select("*").eq("user_id",ME.id).maybeSingle()]);
+    sb.from("job_status").select("*").eq("user_id",uid()),
+    sb.from("people").select("*").eq("user_id",uid()),
+    sb.from("events").select("*").eq("user_id",uid()).order("at"),
+    sb.from("practice").select("*").eq("user_id",uid()).maybeSingle()]);
   loadEmail();
   if(j.error){toast("Couldn't load. Showing what's saved on this phone.");JOBS=load("edwin-jobs-cache",[]);renderAll();return}
   JOBS=j.data.map(jobFrom);save("edwin-jobs-cache",JOBS);
-  const migrated=load("edwin-migrated-"+ME.id,false);
+  const migrated=VIEWAS||load("edwin-migrated-"+ME.id,false);
   // First sign-in on this phone: move anything saved locally up to the account
   if(!migrated){
     const ups=[];
@@ -223,7 +228,7 @@ async function loadAll(){
   D.people=(pp.data||[]).map(personFrom);
   D.events=(ev.data||[]).map(r=>({type:r.type,label:r.label,at:r.at}));
   if(pr.data){S.done=pr.data.done||{};S.days=pr.data.days||[];D.remind=pr.data.remind||D.remind}
-  save(KEY,S);saveD();renderAll()}
+  if(VIEWAS){$("#viewBar").hidden=false;$("#viewName").textContent=VIEWAS.name}else{save(KEY,S);saveD()}renderAll()}
 const STAGES=["To apply","Applied","Replied","Interview","Offer","Rejected","Passed"];
 const jstate=id=>D.jobs[id]||(D.jobs[id]={status:"To apply"});
 function setJobStatus(job,status){const st=jstate(job.id);const prev=st.status;st.status=status;
@@ -246,12 +251,12 @@ async function downloadResume(name,btn){if(!sb||!ME)return;const orig=btn&&btn.t
 let EMAILS=[],GMAIL=null;
 const KIND={applied:["Application received","done"],reply:["Recruiter reply","done"],interview:["Interview","done"],offer:["Offer","done"],rejected:["Not moving forward","info"]};
 async function loadEmail(){if(!sb||!ME)return;
-  const [g,e]=await Promise.all([sb.rpc("gmail_status"),sb.from("email_updates").select("*").eq("user_id",ME.id).eq("dismissed",false).order("received_at",{ascending:false}).limit(40)]);
+  const [g,e]=await Promise.all([VIEWAS?Promise.resolve({data:[VIEWAS.gmail]}):sb.rpc("gmail_status"),sb.from("email_updates").select("*").eq("user_id",uid()).eq("dismissed",false).order("received_at",{ascending:false}).limit(40)]);
   GMAIL=g.data&&g.data[0]||{connected:false};EMAILS=e.data||[];if(tab==="today"||tab==="jobs")renderAll()}
-async function connectGmail(){const {data,error}=await sb.functions.invoke("gmail-connect",{body:{}});
+async function connectGmail(){if(ro())return;const {data,error}=await sb.functions.invoke("gmail-connect",{body:{}});
   if(error||!data||!data.url){let msg="Couldn't start the Gmail connection.";try{const b=await error.context.json();if(b.error)msg=b.error}catch(_){}toast(msg);return}
   location.href=data.url}
-async function checkEmail(btn){if(btn){btn.disabled=true;btn.textContent="Checking..."}
+async function checkEmail(btn){if(ro())return;if(btn){btn.disabled=true;btn.textContent="Checking..."}
   const {data,error}=await sb.functions.invoke("gmail-sync",{body:{}});
   if(btn){btn.disabled=false;btn.textContent="Check my email now"}
   if(error||!data){toast("Couldn't check email. Try again in a minute.");return}
@@ -270,7 +275,7 @@ function gmailCard(){
     <button class="btn" id="gSync">Check my email now</button></div>
   ${recent.length?`<h2>From your inbox</h2>${recent.map(m=>emailRow(m,true)).join("")}`:""}`}
 function bindGmail(v){const c=v.querySelector("#gConnect");if(c)c.onclick=connectGmail;const g=v.querySelector("#gSync");if(g)g.onclick=()=>checkEmail(g);
-  v.querySelectorAll("[data-dismiss]").forEach(b=>b.onclick=async()=>{const id=+b.dataset.dismiss;await sb.from("email_updates").update({dismissed:true}).eq("id",id);EMAILS=EMAILS.filter(m=>m.id!==id);renderAll()})}
+  v.querySelectorAll("[data-dismiss]").forEach(b=>b.onclick=async()=>{if(ro())return;const id=+b.dataset.dismiss;await sb.from("email_updates").update({dismissed:true}).eq("id",id);EMAILS=EMAILS.filter(m=>m.id!==id);renderAll()})}
 
 /* ---------- TODAY ---------- */
 function planCard(didTicket,didApply){
@@ -552,9 +557,13 @@ function downloadIcs(){
 
 /* ---------- tabs ---------- */
 /* ---------- ADMIN ---------- */
+async function startViewAs(m){VIEWAS={user_id:m.user_id,name:m.display_name||m.email,gmail:{connected:!!m.gmail_connected,gmail_address:m.gmail_address,last_sync_at:m.gmail_last_sync},savedS:S,savedD:D};
+  S={done:{},days:[]};D={jobs:{},people:[],events:[],custom:[],remind:{time:"07:30",days:"work"}};openPerson=null;openJob=null;await loadAll();goTo("today");window.scrollTo(0,0)}
+function stopViewAs(){if(!VIEWAS)return;S=VIEWAS.savedS;D=VIEWAS.savedD;VIEWAS=null;$("#viewBar").hidden=true;openPerson=null;openJob=null;loadAll();goTo("admin");window.scrollTo(0,0)}
 let adminMember=null;
 async function renderAdmin(){
   const v=$("#admin");if(ROLE!=="admin"){v.innerHTML="";return}
+  if(VIEWAS){stopViewAs();return}
   v.innerHTML=`<p class="muted">Loading...</p>`;
   const acc=await sb.rpc("member_accounts");
   if(acc.error){v.innerHTML=`<p class="muted">Couldn't load members.</p>`;return}
@@ -562,6 +571,7 @@ async function renderAdmin(){
   if(!adminMember&&members.length)adminMember=members[0].user_id;
   const m=members.find(x=>x.user_id===adminMember);
   let body="";
+  if(m)body+=`<div class="card"><div class="spread"><div><h3>See ${esc(m.display_name||"his")} view</h3><p class="muted">Today, Jobs, People, Practice and Week exactly as he sees them. Read-only.</p></div><button class="btn primary" id="viewAs">Open his view</button></div></div>`;
   if(!m){body=`<div class="card"><h3>Waiting for Edwin</h3><p class="muted">He shows up here once he creates his account with his email on the sign-in screen.</p></div>`}
   else{
     const ws=weekStart();
@@ -602,6 +612,7 @@ async function renderAdmin(){
     <label class="field" for="vResume">Resume file name<input id="vResume"></label>
     <label class="field" for="vWhy">Why it fits<textarea id="vWhy"></textarea></label><label class="field" for="vWatch">Watch out for<textarea id="vWatch"></textarea></label>
     <button class="btn primary" id="vAdd">Add job</button></div>`;
+  const va=$("#viewAs");if(va)va.onclick=()=>startViewAs(m);
   const sel=$("#mSel");if(sel)sel.onchange=e=>{adminMember=e.target.value;renderAdmin()};
   const listResumes=async()=>{const {data}=await sb.storage.from("resumes").list("",{limit:100,sortBy:{column:"name",order:"asc"}});
     const files=(data||[]).filter(f=>f.name.endsWith(".pdf"));const box=$("#rList");if(!box)return;
@@ -668,7 +679,8 @@ if(sb)sb.auth.onAuthStateChange((ev,session)=>{
   if(ev==="PASSWORD_RECOVERY"){ME=session&&session.user;renderAuth("reset");return}
   if(ev==="SIGNED_IN"&&session&&(!ME||ME.id!==session.user.id))enter(session.user);
   if(ev==="SIGNED_OUT"){ME=null;ROLE=null;$("#who").hidden=true;renderAuth("signin")}});
-$("#signOut").onclick=()=>sb&&sb.auth.signOut();
+$("#signOut").onclick=()=>{if(VIEWAS){S=VIEWAS.savedS;D=VIEWAS.savedD;VIEWAS=null;$("#viewBar").hidden=true}sb&&sb.auth.signOut()};
+$("#viewExit").onclick=stopViewAs;
 
 const views={today:renderToday,jobs:renderJobs,people:renderPeople,practice:renderPractice,week:renderWeek,admin:renderAdmin};
 let tab="today";
