@@ -571,7 +571,7 @@ async function renderAdmin(){
   if(!adminMember&&members.length)adminMember=members[0].user_id;
   const m=members.find(x=>x.user_id===adminMember);
   let body="";
-  if(m)body+=`<div class="card"><div class="spread"><div><h3>See ${esc(m.display_name||"his")} view</h3><p class="muted">Today, Jobs, People, Practice and Week exactly as he sees them. Read-only.</p></div><button class="btn primary" id="viewAs">Open his view</button></div></div>`;
+  const viewCard=!m?"":`<div class="card"><div class="spread"><div><h3>See ${esc(m.display_name||"his")} view</h3><p class="muted">Today, Jobs, People, Practice and Week exactly as he sees them. Read-only.</p></div><button class="btn primary" id="viewAs">Open his view</button></div></div>`;
   if(!m){body=`<div class="card"><h3>Waiting for Edwin</h3><p class="muted">He shows up here once he creates his account with his email on the sign-in screen.</p></div>`}
   else{
     const ws=weekStart();
@@ -600,7 +600,7 @@ async function renderAdmin(){
       <div class="row"><label class="field" for="xCo">Company<input id="xCo"></label><label class="field" for="xPos">Role<input id="xPos"></label></div>
       <label class="field" for="xUrl">LinkedIn profile link<input id="xUrl" inputmode="url"></label><label class="field" for="xEmail">Work email (optional)<input id="xEmail" type="email" inputmode="email"></label><button class="btn primary" id="xAdd">Add to his People list</button></div>`}
   v.innerHTML=`${members.length>1?`<label class="field" for="mSel">Viewing<select id="mSel">${members.map(x=>`<option value="${esc(x.user_id)}"${x.user_id===adminMember?" selected":""}>${esc(x.display_name||x.email)}</option>`).join("")}</select></label>`:""}
-  ${body}
+  ${viewCard}${body}
   <div class="card"><h3>Resumes</h3><p class="muted">Upload PDFs named after the job's resume file name. Only you and Edwin can open them.</p>
     <div class="row"><label class="btn" for="rUp" style="cursor:pointer">Upload resume PDFs</label><input type="file" id="rUp" accept="application/pdf" multiple hidden></div>
     <div id="rList"><p class="muted">Loading...</p></div></div>
