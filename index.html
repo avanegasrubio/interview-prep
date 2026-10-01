@@ -649,14 +649,19 @@ function renderPerson(p,v){
 const CDL_URL="https://www.skills.google/paths/9";
 const CDL=["Digital Transformation with Google Cloud","Exploring Data Transformation with Google Cloud","Innovating with Google Cloud Artificial Intelligence","Modernize Infrastructure and Applications with Google Cloud","Trust and Security with Google Cloud","Scaling with Google Cloud Operations"];
 const cdlMap=()=>(D.remind&&D.remind.cdl)||{};
+const cdlProfile=()=>(D.remind&&D.remind.cdlProfile)||"";
 const cdlDone=m=>CDL.filter((_,i)=>m&&m[i]).length;
 function cdlHtml(){const m=cdlMap(),n=cdlDone(m);
   return `<div class="card"><div class="spread"><h3>Cloud Digital Leader path</h3><span class="pill ${n===CDL.length?"done":"info"}">${n} of ${CDL.length}</span></div>
   <div class="track" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;height:12px;overflow:hidden"><div style="height:100%;width:${Math.round(n/CDL.length*100)}%;background:var(--accent)"></div></div>
   <p class="muted">Take each course on Google Cloud Skills Boost, then tick it off here when you finish it.</p>
   ${CDL.map((c,i)=>`<button class="item" data-cdl="${i}" aria-pressed="${m[i]?"true":"false"}"><span class="dot ${m[i]?"done":""}"></span><span class="t">${esc(c)}${m[i]?`<br><span class="muted">Finished ${nice(m[i])}</span>`:""}</span></button>`).join("")}
-  <a class="btn" href="${CDL_URL}" target="_blank" rel="noopener">Open the path on Skills Boost</a>${n===CDL.length?`<p class="muted"><b>Path complete.</b> The exam is the next step.</p>`:""}</div>`}
-function bindCdl(v,rerender){v.querySelectorAll("[data-cdl]").forEach(b=>b.onclick=()=>{if(ro())return;const i=+b.dataset.cdl;D.remind=D.remind||{};const m=D.remind.cdl=D.remind.cdl||{};
+  <div class="row"><a class="btn" href="${CDL_URL}" target="_blank" rel="noopener">Open the path on Skills Boost</a>${cdlProfile()?`<a class="btn" href="${esc(cdlProfile())}" target="_blank" rel="noopener">My Skills Boost profile</a>`:""}</div>
+  ${cdlProfile()?"":`<label class="field" for="cdlP">Your public Skills Boost profile link<input id="cdlP" inputmode="url" placeholder="https://www.skills.google/public_profiles/..."></label><button class="btn small" id="cdlPSave" style="align-self:flex-start">Save link</button>`}${n===CDL.length?`<p class="muted"><b>Path complete.</b> The exam is the next step.</p>`:""}</div>`}
+function bindCdl(v,rerender){const ps=v.querySelector("#cdlPSave");if(ps)ps.onclick=()=>{if(ro())return;const u=v.querySelector("#cdlP").value.trim();
+  if(!/^https:\/\/(www\.)?(skills\.google|cloudskillsboost\.google)\/public_profiles\/[\w-]+\/?$/.test(u)){toast("Paste the link from your public profile page");return}
+  D.remind=D.remind||{};D.remind.cdlProfile=u;saveD();saveS();rerender();toast("Profile link saved")};
+  v.querySelectorAll("[data-cdl]").forEach(b=>b.onclick=()=>{if(ro())return;const i=+b.dataset.cdl;D.remind=D.remind||{};const m=D.remind.cdl=D.remind.cdl||{};
   if(m[i])delete m[i];else m[i]=today();saveD();saveS();rerender();toast(m[i]?"Course checked off":"Unchecked")})}
 
 /* ---------- PRACTICE ---------- */
@@ -760,7 +765,7 @@ async function renderAdmin(){
     body=`<div class="card"><div class="spread"><h3>${esc(m.display_name||m.email)} this week</h3><span class="tid">Week of ${nice(ws)}</span></div>
       <div class="score"><div><b>${c("applied")}</b><span>Applications</span></div><div><b>${c("reply")}</b><span>Replies</span></div><div><b>${c("interview")}</b><span>Interviews</span></div><div><b>${c("offer")}</b><span>Offers</span></div></div>
       <p class="muted">Practiced ${practicedWeek} ${practicedWeek===1?"day":"days"} this week · ${resolved} of ${T.length} tickets resolved</p>
-      <p class="muted">Cloud Digital Leader path: ${cdlDone((pr.data&&pr.data.remind&&pr.data.remind.cdl)||{})} of ${CDL.length} courses finished</p>
+      <p class="muted">Cloud Digital Leader path: ${cdlDone((pr.data&&pr.data.remind&&pr.data.remind.cdl)||{})} of ${CDL.length} courses finished${pr.data&&pr.data.remind&&pr.data.remind.cdlProfile?` · <a href="${esc(pr.data.remind.cdlProfile)}" target="_blank" rel="noopener">his profile</a>`:""}</p>
       <div class="spread"><span><b>Gmail</b> <span class="muted">${m.gmail_connected?`· ${esc(m.gmail_address||"address not shown")} · ${m.gmail_last_sync?"last checked "+new Date(m.gmail_last_sync).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}):"not checked yet"}${m.gmail_drafts?" · drafts on":""}`:"· He hasn't connected it yet"}</span></span><span class="pill ${m.gmail_connected?"done":"open"}">${m.gmail_connected?"Connected":"Not connected"}</span></div></div>
     <div class="card"><h3>Jobs</h3>${JOBS.map(j=>{const r=stById[j.id];const s=r?r.status:"To apply";
       return `<div class="spread"><span><b>${esc(j.company)}</b> · ${esc(j.role)}${r&&r.applied_at?` <span class="muted">· applied ${nice(r.applied_at)}</span>`:""}</span><span class="row"><span class="pill ${s==="To apply"?"open":"done"}">${esc(s)}</span><button class="btn small" data-archive="${esc(j.id)}">Archive</button></span></div>`}).join("")||`<p class="muted">No active jobs.</p>`}</div>
