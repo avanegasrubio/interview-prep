@@ -28,11 +28,8 @@
   --body:"Instrument Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
   --mono:"DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
 }
-@media (prefers-color-scheme: dark){:root{
-  --bg:#12102a; --panel:#1c1938; --ink:#f3f1ff; --muted:#a9a4c8; --line:#2e2a52;
-  --accent:#8b77ff; --accent-ink:#12102a; --open:#ff8838; --open-bg:#3a2414; --done:#c4e86b; --done-bg:#253a10;
-  --info:#d6cfff; --info-bg:#2a2552; color-scheme:dark}}
 [hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--body)}
 .wrap{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:18px 48px;display:flex;flex-direction:column;gap:16px}
