@@ -28,11 +28,8 @@
   --body:"Instrument Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
   --mono:"DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
 }
-@media (prefers-color-scheme: dark){:root{
-  --bg:#12102a; --panel:#1c1938; --ink:#f3f1ff; --muted:#a9a4c8; --line:#2e2a52;
-  --accent:#8b77ff; --accent-ink:#12102a; --open:#ff8838; --open-bg:#3a2414; --done:#c4e86b; --done-bg:#253a10;
-  --info:#d6cfff; --info-bg:#2a2552; color-scheme:dark}}
 [hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--body)}
 .wrap{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:18px 48px;display:flex;flex-direction:column;gap:16px}
@@ -646,14 +643,33 @@ function renderPerson(p,v){
   const b2=$("#delP");b2.onclick=()=>{if(b2.dataset.armed){D.people=D.people.filter(x=>x.id!==p.id);saveD();removePerson(p.id);openPerson=null;renderPeople();toast("Removed")}else{b2.dataset.armed=1;b2.textContent="Tap again to remove"}};
 }
 
+/* ---------- Cloud Digital Leader path (Google Cloud Skills Boost): checked off by hand, stored in practice.remind.cdl as {courseIndex: date} ---------- */
+const CDL_URL="https://www.skills.google/paths/9";
+const CDL=["Digital Transformation with Google Cloud","Exploring Data Transformation with Google Cloud","Innovating with Google Cloud Artificial Intelligence","Modernize Infrastructure and Applications with Google Cloud","Trust and Security with Google Cloud","Scaling with Google Cloud Operations"];
+const cdlMap=()=>(D.remind&&D.remind.cdl)||{};
+const cdlProfile=()=>(D.remind&&D.remind.cdlProfile)||"";
+const cdlDone=m=>CDL.filter((_,i)=>m&&m[i]).length;
+function cdlHtml(){const m=cdlMap(),n=cdlDone(m);
+  return `<div class="card"><div class="spread"><h3>Cloud Digital Leader path</h3><span class="pill ${n===CDL.length?"done":"info"}">${n} of ${CDL.length}</span></div>
+  <div class="track" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;height:12px;overflow:hidden"><div style="height:100%;width:${Math.round(n/CDL.length*100)}%;background:var(--accent)"></div></div>
+  <p class="muted">Take each course on Google Cloud Skills Boost, then tick it off here when you finish it.</p>
+  ${CDL.map((c,i)=>`<button class="item" data-cdl="${i}" aria-pressed="${m[i]?"true":"false"}"><span class="dot ${m[i]?"done":""}"></span><span class="t">${esc(c)}${m[i]?`<br><span class="muted">Finished ${nice(m[i])}</span>`:""}</span></button>`).join("")}
+  <div class="row"><a class="btn" href="${CDL_URL}" target="_blank" rel="noopener">Open the path on Skills Boost</a>${cdlProfile()?`<a class="btn" href="${esc(cdlProfile())}" target="_blank" rel="noopener">My Skills Boost profile</a>`:""}</div>
+  ${cdlProfile()?"":`<label class="field" for="cdlP">Your public Skills Boost profile link<input id="cdlP" inputmode="url" placeholder="https://www.skills.google/public_profiles/..."></label><button class="btn small" id="cdlPSave" style="align-self:flex-start">Save link</button>`}${n===CDL.length?`<p class="muted"><b>Path complete.</b> The exam is the next step.</p>`:""}</div>`}
+function bindCdl(v,rerender){const ps=v.querySelector("#cdlPSave");if(ps)ps.onclick=()=>{if(ro())return;const u=v.querySelector("#cdlP").value.trim();
+  if(!/^https:\/\/(www\.)?(skills\.google|cloudskillsboost\.google)\/public_profiles\/[\w-]+\/?$/.test(u)){toast("Paste the link from your public profile page");return}
+  D.remind=D.remind||{};D.remind.cdlProfile=u;saveD();saveS();rerender();toast("Profile link saved")};
+  v.querySelectorAll("[data-cdl]").forEach(b=>b.onclick=()=>{if(ro())return;const i=+b.dataset.cdl;D.remind=D.remind||{};const m=D.remind.cdl=D.remind.cdl||{};
+  if(m[i])delete m[i];else m[i]=today();saveD();saveS();rerender();toast(m[i]?"Course checked off":"Unchecked")})}
+
 /* ---------- PRACTICE ---------- */
 let current=null;
 function renderPractice(){const v=$("#practice");
   if(current!==null){v.innerHTML=`<button class="btn" id="backQ">Back to queue</button><div id="pt"></div>`;renderTicket(current,$("#pt"),()=>renderPractice());$("#backQ").onclick=()=>{current=null;renderPractice()};return}
-  let html=`<p class="muted">Answer out loud, record yourself if you can, then compare. Stories should fit in 90 seconds.</p>`,last="";
+  let html=`<p class="muted">Answer out loud, record yourself if you can, then compare. Stories should fit in 90 seconds.</p>${cdlHtml()}`,last="";
   T.forEach((t,i)=>{if(t[0]!==last){html+=`<h2>${esc(t[0])}</h2>`;last=t[0]}
     html+=`<button class="item" data-i="${i}"><span class="dot ${S.done[i]?"done":""}"></span><span class="tid">TKT-${101+i}</span><span class="t">${esc(t[1])}</span></button>`});
-  v.innerHTML=html;v.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{current=+b.dataset.i;renderPractice();window.scrollTo(0,0)})}
+  v.innerHTML=html;bindCdl(v,renderPractice);v.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{current=+b.dataset.i;renderPractice();window.scrollTo(0,0)})}
 
 /* ---------- WEEK ---------- */
 function weekCounts(){const ws=weekStart();const ev=D.events.filter(e=>e.at>=ws);const c=t=>ev.filter(e=>e.type===t).length;return{a:c("applied"),r:c("reply"),i:c("interview"),o:c("offer")}}
@@ -685,6 +701,7 @@ function renderWeek(){const v=$("#week");const w=weekCounts();const ws=weekStart
   <div class="score"><div><b>${w.a}</b><span>Applications</span></div><div><b>${w.r}</b><span>Replies</span></div><div><b>${w.i}</b><span>Interviews</span></div><div><b>${w.o}</b><span>Offers</span></div></div>
   <button class="btn primary" id="cpScore">Copy scoreboard</button></div>
   ${funnelHtml()}
+  <div class="card"><div class="spread"><h3>Cloud Digital Leader</h3><span class="pill info">${cdlDone(cdlMap())} of ${CDL.length}</span></div><p class="muted">Courses finished on the Skills Boost path. Tick them off on the Practice tab.</p></div>
   <div class="card"><h3>Log something from outside the app</h3><p class="muted">Applied through LinkedIn Easy Apply, or a recruiter emailed? Log it so the scoreboard stays accurate.</p>
   <div class="row"><button class="btn small" data-log="applied">+ Application</button><button class="btn small" data-log="reply">+ Reply</button><button class="btn small" data-log="interview">+ Interview</button><button class="btn small" data-log="offer">+ Offer</button></div></div>
   <div class="card"><h3>Recent activity</h3>${recent.length?recent.map(e=>`<div class="spread"><span>${label[e.type]||e.type}${e.label?" · "+esc(e.label):""}</span><span class="tid">${nice(e.at)}</span></div>`).join(""):`<p class="muted">Nothing logged yet this week.</p>`}</div>`;
@@ -746,6 +763,7 @@ async function renderAdmin(){
     body=`<div class="card"><div class="spread"><h3>${esc(m.display_name||m.email)} this week</h3><span class="tid">Week of ${nice(ws)}</span></div>
       <div class="score"><div><b>${c("applied")}</b><span>Applications</span></div><div><b>${c("reply")}</b><span>Replies</span></div><div><b>${c("interview")}</b><span>Interviews</span></div><div><b>${c("offer")}</b><span>Offers</span></div></div>
       <p class="muted">Practiced ${practicedWeek} ${practicedWeek===1?"day":"days"} this week · ${resolved} of ${T.length} tickets resolved</p>
+      <p class="muted">Cloud Digital Leader path: ${cdlDone((pr.data&&pr.data.remind&&pr.data.remind.cdl)||{})} of ${CDL.length} courses finished${pr.data&&pr.data.remind&&pr.data.remind.cdlProfile?` · <a href="${esc(pr.data.remind.cdlProfile)}" target="_blank" rel="noopener">his profile</a>`:""}</p>
       <div class="spread"><span><b>Gmail</b> <span class="muted">${m.gmail_connected?`· ${esc(m.gmail_address||"address not shown")} · ${m.gmail_last_sync?"last checked "+new Date(m.gmail_last_sync).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}):"not checked yet"}${m.gmail_drafts?" · drafts on":""}`:"· He hasn't connected it yet"}</span></span><span class="pill ${m.gmail_connected?"done":"open"}">${m.gmail_connected?"Connected":"Not connected"}</span></div></div>
     <div class="card"><h3>Jobs</h3>${JOBS.map(j=>{const r=stById[j.id];const s=r?r.status:"To apply";
       return `<div class="spread"><span><b>${esc(j.company)}</b> · ${esc(j.role)}${r&&r.applied_at?` <span class="muted">· applied ${nice(r.applied_at)}</span>`:""}</span><span class="row"><span class="pill ${s==="To apply"?"open":"done"}">${esc(s)}</span><button class="btn small" data-archive="${esc(j.id)}">Archive</button></span></div>`}).join("")||`<p class="muted">No active jobs.</p>`}</div>
