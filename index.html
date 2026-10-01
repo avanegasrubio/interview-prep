@@ -62,6 +62,7 @@ p{margin:0}
 .check{display:flex;gap:10px;align-items:center;font-size:15px}
 .check .box{width:22px;height:22px;border-radius:6px;border:2px solid var(--line);display:grid;place-items:center;flex:0 0 auto;font:700 14px var(--body);color:var(--done)}
 .check.on .box{border-color:var(--done);background:var(--done-bg)}
+.todo{align-items:flex-start;flex-wrap:nowrap;padding:4px 0}.todo .check{flex:1 1 auto;min-width:0;align-items:flex-start}.todo .btn{flex:0 0 auto}.late{color:var(--open);font-weight:700}
 .nudge{border-left:4px solid var(--open);background:var(--open-bg);color:var(--ink);border-radius:8px;padding:10px 12px;font-size:15px}
 .q{font:600 20px/1.3 var(--display);margin:0;text-wrap:balance}
 .answer{border-top:1px dashed var(--line);padding-top:10px;min-width:0}
@@ -341,22 +342,48 @@ function prepHtml(j,open){const p=j.prep||GENERIC_PREP;const li=a=>(a||[]).map(x
   <p class="muted">Practice two of these out loud before the call. After it, a thank-you note reminder shows up on Today.</p></details>`}
 
 /* ---------- TODAY ---------- */
-function planCard(didTicket,didApply){
-  const nextJob=JOBS.filter(j=>jstate(j.id).status==="To apply").sort((a,b)=>(b.match||0)-(a.match||0))[0];
-  const due=nextDue()[0];const nextPerson=due?due.p:D.people.filter(p=>p.status==="To message").sort((a,b)=>((b.source==="Assigned")-(a.source==="Assigned"))||score(b)-score(a))[0];
-  const didMsg=D.people.some(p=>p.messagedAt===today()||Object.values(p.seq||{}).includes(today()));
-  const verb={connect:"Send a LinkedIn request to",email:"Email your resume to",message:"Message",followup:"Follow up with"};
-  const moreDue=nextDue().length-1;
-  const row=(on,text,btn,attr)=>`<div class="spread"><div class="check ${on?"on":""}"><span class="box">${on?"✓":""}</span><span>${text}</span></div>${btn&&!on?`<button class="btn small" ${attr}>${btn}</button>`:""}</div>`;
-  return `<div class="card"><h3>Today's plan</h3>
-    ${row(didApply,nextJob?`Apply to <b>${esc(nextJob.company)}</b> · ${esc(nextJob.role)}`:"Send 1 application",nextJob?"Open":"",nextJob?`data-plan-job="${esc(nextJob.id)}"`:"")}
-    ${row(didMsg,nextPerson?`${due?verb[due.st.k]:"Message"} <b>${esc(nextPerson.first)} ${esc(nextPerson.last)}</b>${nextPerson.company?" at "+esc(nextPerson.company):""}${moreDue>0?` <span class="muted">(+${moreDue} more due)</span>`:""}`:"Message 1 person",nextPerson?"Open":"",nextPerson?`data-plan-person="${esc(nextPerson.id)}"`:"")}
-    ${row(didTicket,"Practice today's ticket, out loud","Go","data-plan-ticket")}
-    <p class="muted">About 15 minutes total. On a rough day, just do one.</p></div>`}
+/* One list for the day: everything due across jobs, people and practice, most urgent first, with what's already done today checked off. */
+const VERB={connect:"Send a LinkedIn request to",email:"Email your resume to",message:"Message",followup:"Follow up with"};
+const DONE_VERB={connect:"Sent a LinkedIn request to",email:"Emailed your resume to",message:"Messaged",followup:"Followed up with"};
+function adviceFor(j){const k=(j.kit||[]).find(x=>/^Reach out first or apply first/i.test(x.label||""));return k?String(k.label).replace(/^Reach out first or apply first\??\s*/i,"").trim():""}
+function applyBy(j){const a=adviceFor(j),added=j.added||today();
+  const m=a.match(/apply by ([A-Za-z]{3})[a-z]*\.? (\d{1,2})/i),mo=m&&["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"].indexOf(m[1].toLowerCase());
+  if(m&&mo>=0){let k=dkey(new Date(+added.slice(0,4),mo,+m[2]));if(k<added)k=dkey(new Date(+added.slice(0,4)+1,mo,+m[2]));return k}
+  if(/apply (today|now|immediately|first)/i.test(a))return added;
+  return addDays(added,2)}
+const pname=p=>`<b>${esc(p.first)} ${esc(p.last)}</b>${p.company?" at "+esc(p.company):""}`;
+function todayItems(didTicket){const t=today(),todo=[],done=[];
+  thanksDue().forEach(j=>todo.push({rank:0,text:`Send a thank-you note for <b>${esc(j.company)}</b>`,sub:"Within 24 hours of the interview",btn:"Write it",attr:`data-td-scroll="thanksBox"`}));
+  const toApply=JOBS.filter(j=>jstate(j.id).status==="To apply").map(j=>({j,by:applyBy(j)})).sort((x,y)=>x.by.localeCompare(y.by)||(y.j.match||0)-(x.j.match||0));
+  toApply.filter(x=>x.by<=t).forEach(({j,by})=>{const late=daysSince(by),adv=adviceFor(j);
+    todo.push({rank:late>0?1:3,text:`Apply to <b>${esc(j.company)}</b> · ${esc(j.role)}`,sub:(late>0?`<span class="late">Was due ${nice(by)}</span>`:"Due today")+(adv?` · ${esc(adv)}`:""),btn:"Open",attr:`data-plan-job="${esc(j.id)}"`})});
+  nextDue().forEach(({p,st})=>{const late=daysSince(st.due);
+    todo.push({rank:late>0?2:3,text:`${VERB[st.k]} ${pname(p)}`,sub:late>0?`<span class="late">${whenLabel(st.due)}</span>`:"Due today",btn:"Open",attr:`data-plan-person="${esc(p.id)}"`})});
+  followUpsDue().forEach(f=>todo.push(f.kind==="job"
+    ?{rank:4,text:`Follow up on <b>${esc(f.j.company)}</b>`,sub:`Applied ${f.d} days ago. A short, friendly check-in is enough.`,btn:"Sent it",attr:`data-fu-job="${esc(f.j.id)}"`}
+    :{rank:4,text:`Follow up with ${pname(f.p)}`,sub:`Messaged ${f.d} days ago`,btn:"Sent it",attr:`data-fu-person="${esc(f.p.id)}"`}));
+  const appliedToday=D.events.some(e=>e.type==="applied"&&e.at===t);
+  if(!appliedToday&&!todo.some(x=>/data-plan-job/.test(x.attr))){const nx=toApply.slice().sort((x,y)=>(y.j.match||0)-(x.j.match||0))[0];
+    if(nx)todo.push({rank:5,text:`Get ahead: apply to <b>${esc(nx.j.company)}</b> · ${esc(nx.j.role)}`,sub:`Apply by ${nice(nx.by)}`+(adviceFor(nx.j)?` · ${esc(adviceFor(nx.j))}`:""),btn:"Open",attr:`data-plan-job="${esc(nx.j.id)}"`})}
+  if(!didTicket)todo.push({rank:6,text:"Practice today's ticket, out loud",sub:"About 5 minutes",btn:"Go",attr:"data-td-scroll=\"todayTicket\""});
+  D.events.filter(e=>e.type==="applied"&&e.at===t).forEach(e=>done.push(`Applied to <b>${esc(e.label)}</b>`));
+  D.people.forEach(p=>Object.entries(p.seq||{}).forEach(([k,v])=>{if(v===t)done.push(`${DONE_VERB[k]||"Contacted"} ${pname(p)}`)}));
+  JOBS.forEach(j=>{const s=jstate(j.id);if(s.thankedAt===t)done.push(`Sent a thank-you note for <b>${esc(j.company)}</b>`);if(s.followedUp===t)done.push(`Followed up on <b>${esc(j.company)}</b>`)});
+  D.people.forEach(p=>{if(p.followedUp===t&&!(p.seq||{}).followup)done.push(`Followed up with ${pname(p)}`)});
+  if(didTicket)done.push("Practiced today's ticket");
+  todo.sort((x,y)=>x.rank-y.rank);return {todo,done}}
+function todayList(didTicket){const {todo,done}=todayItems(didTicket);
+  const row=(on,text,sub,btn,attr)=>`<div class="spread todo"><div class="check ${on?"on":""}"><span class="box">${on?"✓":""}</span><span>${text}${sub?`<br><span class="muted">${sub}</span>`:""}</span></div>${btn&&!on?`<button class="btn small" ${attr}>${btn}</button>`:""}</div>`;
+  const total=todo.length+done.length;
+  return `<div class="card"><div class="spread"><h3>Today's list</h3>${total?`<span class="pill ${todo.length?"open":"done"}">${done.length} of ${total} done</span>`:""}</div>
+    ${todo.map(x=>row(false,x.text,x.sub,x.btn,x.attr)).join("")}
+    ${done.map(x=>row(true,x)).join("")}
+    ${!todo.length?`<p class="muted">${done.length?"That's everything for today. Nice work.":"Nothing is due today. New jobs and contacts show up here as soon as they're added."}</p>`
+      :`<p class="muted">Top of the list first. On a rough day, just do the first one.</p>`}</div>`}
 function bindPlan(v){
   v.querySelectorAll("[data-plan-job]").forEach(b=>b.onclick=()=>{goTo("jobs");openJob=b.dataset.planJob;renderJobs()});
   v.querySelectorAll("[data-plan-person]").forEach(b=>b.onclick=()=>{goTo("people");openPerson=b.dataset.planPerson;renderPeople()});
-  v.querySelectorAll("[data-plan-ticket]").forEach(b=>b.onclick=()=>{const t=$("#todayTicket");if(t)t.scrollIntoView({behavior:"smooth"})})}
+  v.querySelectorAll("[data-td-scroll]").forEach(b=>b.onclick=()=>{const t=document.getElementById(b.dataset.tdScroll);if(t)t.scrollIntoView({behavior:"smooth"})})}
 function dailyIndex(){const open=T.map((_,i)=>i).filter(i=>!S.done[i]);const pool=open.length?open:T.map((_,i)=>i);let h=0;for(const c of today())h=(h*31+c.charCodeAt(0))%9973;return pool[h%pool.length]}
 function renderToday(){
   const v=$("#today");const didTicket=S.days.includes(today());const didApply=D.events.some(e=>e.type==="applied"&&e.at===today());
@@ -364,16 +391,10 @@ function renderToday(){
   let nudge="";
   if(lastApply==null)nudge=`<div class="nudge"><b>No applications logged yet.</b> Start with SpotMe on the Jobs tab. It's the strongest match.</div>`;
   else if(gap>=3)nudge=`<div class="nudge"><b>${gap} days since your last application.</b> One today keeps the streak going.</div>`;
-  const fu=followUpsDue();
-  const fuHtml=fu.length?`<div class="card"><h3>Follow-ups due</h3>${fu.map(f=>f.kind==="job"
-    ?`<div class="spread"><span>${esc(f.j.company)} · applied ${f.d} days ago</span><button class="btn small" data-fu-job="${esc(f.j.id)}">Done</button></div>`
-    :`<div class="spread"><span>${esc(f.p.first)} ${esc(f.p.last)} · messaged ${f.d} days ago</span><button class="btn small" data-fu-person="${esc(f.p.id)}">Done</button></div>`).join("")}
-    <p class="muted">A short, friendly check-in is enough. Mark it done once you've sent it.</p></div>`:"";
   const i=dailyIndex();
   v.innerHTML=`${nudge}
-  ${planCard(didTicket,didApply)}
-  ${thanksCard()}
-  ${fuHtml}
+  ${todayList(didTicket)}
+  <div id="thanksBox">${thanksCard()}</div>
   ${pushCard()}
   ${gmailCard()}
   <div class="stats"><div class="stat"><b>${Object.keys(S.done).length} / ${T.length}</b><span>tickets resolved</span></div><div class="stat"><b>${streak()} ${streak()===1?"day":"days"}</b><span>practice streak</span></div></div>
