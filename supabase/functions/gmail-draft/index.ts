@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
   let pdf: Uint8Array | null = null, fname = "";
   if (job?.resume) {
     const { data: file } = await admin.storage.from("resumes").download(`${job.resume}.pdf`);
-    if (file) { pdf = new Uint8Array(await file.arrayBuffer()); fname = `${job.resume}.pdf`; }
+    if (file) { pdf = new Uint8Array(await file.arrayBuffer()); fname = `${String(job.resume).replace(/\s*\(\d+\)$/, "")}.pdf`; /* drop a browser's " (4)" */ }
   }
 
   const boundary = "b_" + crypto.randomUUID().replaceAll("-", "");

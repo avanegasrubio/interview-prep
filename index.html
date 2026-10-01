@@ -248,7 +248,7 @@ function goTo(t){const b=document.querySelector(`.tabs [data-tab="${t}"]`);if(b)
 async function downloadResume(name,btn){if(!sb||!ME)return;const orig=btn&&btn.textContent;if(btn){btn.disabled=true;btn.textContent="Getting it..."}
   const {data,error}=await sb.storage.from("resumes").download(name+".pdf");if(btn){btn.disabled=false;btn.textContent=orig}
   if(error||!data){toast("That resume isn't uploaded yet. Ask Ari.");return}
-  const a=document.createElement("a");a.href=URL.createObjectURL(data);a.download=name+".pdf";document.body.appendChild(a);a.click();a.remove();toast("Resume downloaded")}
+  const a=document.createElement("a");a.href=URL.createObjectURL(data);a.download=name.replace(/\s*\(\d+\)$/,"")+".pdf";document.body.appendChild(a);a.click();a.remove();toast("Resume downloaded")}
 
 /* ---------- Gmail ---------- */
 let EMAILS=[],GMAIL=null;
