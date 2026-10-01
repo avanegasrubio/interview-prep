@@ -62,6 +62,7 @@ p{margin:0}
 .check{display:flex;gap:10px;align-items:center;font-size:15px}
 .check .box{width:22px;height:22px;border-radius:6px;border:2px solid var(--line);display:grid;place-items:center;flex:0 0 auto;font:700 14px var(--body);color:var(--done)}
 .check.on .box{border-color:var(--done);background:var(--done-bg)}
+.bank summary{cursor:pointer}.bankrow{border-top:1px dashed var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px}
 .todo{align-items:flex-start;flex-wrap:nowrap;padding:4px 0}.todo .check{flex:1 1 auto;min-width:0;align-items:flex-start}.todo .btn{flex:0 0 auto}.late{color:var(--open);font-weight:700}
 .nudge{border-left:4px solid var(--open);background:var(--open-bg);color:var(--ink);border-radius:8px;padding:10px 12px;font-size:15px}
 .q{font:600 20px/1.3 var(--display);margin:0;text-wrap:balance}
@@ -206,8 +207,24 @@ function weekStart(){const d=new Date();const day=(d.getDay()+6)%7;d.setDate(d.g
 
 /* ---------- jobs data (vetted list lives in jobs.json, status lives on this phone) ---------- */
 let JOBS=[];
+/* ---------- application answer bank (private table "answers", one row per member) ---------- */
+let ANS=null,ansEdit=null;
+async function loadAnswers(){if(!sb||!ME)return;const {data}=await sb.from("answers").select("data").eq("user_id",uid()).maybeSingle();ANS=(data&&data.data&&data.data.items)||[];if(tab==="jobs")renderJobs()}
+async function saveAnswers(){if(!sb||!ME||ro())return;const {error}=await sb.from("answers").upsert({user_id:ME.id,data:{items:ANS},updated_at:new Date().toISOString()});fail(error);if(!error)toast("Saved")}
+function bankHtml(where){if(!ANS||!ANS.length)return "";
+  return `<details class="card bank"><summary><b>Your application answers</b> <span class="muted">· ${ANS.length} saved · tap to open</span></summary>
+  <p class="muted">The questions most application forms ask, answered once. Tap Copy, then paste into the form. Answer demographic questions (gender, race, veteran, disability) yourself.</p>
+  ${ANS.map((x,i)=>`<div class="qa bankrow"><p><b>${esc(x.q)}</b></p>${ansEdit===i?`<textarea id="ansIn">${esc(x.a)}</textarea><div class="row"><button class="btn small primary" data-ans-save="${i}">Save</button><button class="btn small" data-ans-cancel>Cancel</button></div>`
+    :`<p style="white-space:pre-line">${esc(x.a)}</p><div class="row"><button class="btn small" data-ans-copy="${i}">Copy</button>${VIEWAS?"":`<button class="btn small" data-ans-edit="${i}">Edit</button>`}</div>`}</div>`).join("")}
+  ${ANS.some(x=>/\[/.test(x.a))?`<p class="muted">Parts in [brackets] still need your details. Tap Edit to fill them in once.</p>`:""}</details>`}
+function bindBank(v,rerender){
+  v.querySelectorAll("[data-ans-copy]").forEach(b=>b.onclick=()=>copy(ANS[+b.dataset.ansCopy].a));
+  v.querySelectorAll("[data-ans-edit]").forEach(b=>b.onclick=()=>{ansEdit=+b.dataset.ansEdit;rerender();const d=v.querySelector(".bank");if(d)d.open=true;const t=$("#ansIn");if(t)t.focus()});
+  v.querySelectorAll("[data-ans-cancel]").forEach(b=>b.onclick=()=>{ansEdit=null;rerender();const d=v.querySelector(".bank");if(d)d.open=true});
+  v.querySelectorAll("[data-ans-save]").forEach(b=>b.onclick=()=>{ANS[+b.dataset.ansSave].a=$("#ansIn").value.trim();ansEdit=null;saveAnswers();rerender();const d=v.querySelector(".bank");if(d)d.open=true})}
 async function loadAll(){
   if(!sb||!ME){JOBS=load("edwin-jobs-cache",[]);renderAll();return}
+  loadAnswers();
   const [j,st,pp,ev,pr]=await Promise.all([
     sb.from("jobs").select("*").eq("active",true),
     sb.from("job_status").select("*").eq("user_id",uid()),
@@ -302,6 +319,11 @@ async function enablePush(btn){if(ro())return;btn.disabled=true;
 async function testPush(){if(ro())return;const {data,error}=await sb.functions.invoke("push-daily",{body:{test:true}});if(error||!data||!data.sent)toast("Test didn't arrive yet. Try again in a minute.")}
 async function disablePush(){if(ro())return;const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
   if(sub){await sb.from("push_subscriptions").delete().eq("endpoint",sub.endpoint);await sub.unsubscribe()}PUSH="off";renderToday();toast("Notifications off")}
+function emailCard(){if(VIEWAS||ROLE==="admin")return "";const on=D.remind.email!==false;
+  return `<div class="card"><div class="spread"><h3>Morning email</h3><span class="pill ${on?"done":"info"}">${on?"On":"Off"}</span></div>
+    <p class="muted">${on?"Today's list lands in your inbox around 7:30am, so it's waiting when you wake up.":"Turn it on to get today's list in your inbox each morning."}</p>
+    <button class="btn small" id="mailToggle">${on?"Turn off":"Turn on"}</button></div>`}
+function bindEmail(v){const b=v.querySelector("#mailToggle");if(b)b.onclick=()=>{if(ro())return;D.remind.email=D.remind.email===false;saveD();syncPractice();renderToday();toast(D.remind.email?"Morning email on":"Morning email off")}}
 function pushCard(){if(VIEWAS)return "";
   if(PUSH==="unknown"){pushState().then(x=>{PUSH=x;if(tab==="today")renderToday()});return ""}
   if(PUSH==="unsupported")return "";
@@ -357,8 +379,12 @@ function todayItems(didTicket){const t=today(),todo=[],done=[];
   const toApply=JOBS.filter(j=>jstate(j.id).status==="To apply").map(j=>({j,by:applyBy(j)})).sort((x,y)=>x.by.localeCompare(y.by)||(y.j.match||0)-(x.j.match||0));
   toApply.filter(x=>x.by<=t).forEach(({j,by})=>{const late=daysSince(by),adv=adviceFor(j);
     todo.push({rank:late>0?1:3,text:`Apply to <b>${esc(j.company)}</b> · ${esc(j.role)}`,sub:(late>0?`<span class="late">Was due ${nice(by)}</span>`:"Due today")+(adv?` · ${esc(adv)}`:""),btn:"Open",attr:`data-plan-job="${esc(j.id)}"`})});
-  nextDue().forEach(({p,st})=>{const late=daysSince(st.due);
-    todo.push({rank:late>0?2:3,text:`${VERB[st.k]} ${pname(p)}`,sub:late>0?`<span class="late">${whenLabel(st.due)}</span>`:"Due today",btn:"Open",attr:`data-plan-person="${esc(p.id)}"`})});
+  /* Outreach: at most 5 people a day. Overdue first, then anyone the job's advice names, then the company with the soonest apply-by date. */
+  const byCo=co=>{const c=(co||"").toLowerCase();const x=toApply.find(y=>c&&c.includes(y.j.company.toLowerCase()));return x||null};
+  const out=nextDue().map(({p,st})=>{const x=byCo(p.company);const named=x&&p.first&&new RegExp("\\b"+p.first.replace(/[^A-Za-z]/g,"")+"\\b","i").test(adviceFor(x.j));
+    return {p,st,late:daysSince(st.due),named:!!named,by:x?x.by:"9999"}}).sort((a,b)=>(b.late>0)-(a.late>0)||b.named-a.named||a.by.localeCompare(b.by)||b.late-a.late);
+  out.slice(0,5).forEach(({p,st,late,named})=>todo.push({rank:late>0?2:3,text:`${VERB[st.k]} ${pname(p)}`,sub:(late>0?`<span class="late">${whenLabel(st.due)}</span>`:"Due today")+(named?" · Your best way in":""),btn:"Open",attr:`data-plan-person="${esc(p.id)}"`}));
+  if(out.length>5)todo.push({rank:3.5,text:`${out.length-5} more people to contact`,sub:"After the five above. No rush, they'll move up as you go.",btn:"People",attr:`data-td-tab="people"`});
   followUpsDue().forEach(f=>todo.push(f.kind==="job"
     ?{rank:4,text:`Follow up on <b>${esc(f.j.company)}</b>`,sub:`Applied ${f.d} days ago. A short, friendly check-in is enough.`,btn:"Sent it",attr:`data-fu-job="${esc(f.j.id)}"`}
     :{rank:4,text:`Follow up with ${pname(f.p)}`,sub:`Messaged ${f.d} days ago`,btn:"Sent it",attr:`data-fu-person="${esc(f.p.id)}"`}));
@@ -383,6 +409,7 @@ function todayList(didTicket){const {todo,done}=todayItems(didTicket);
 function bindPlan(v){
   v.querySelectorAll("[data-plan-job]").forEach(b=>b.onclick=()=>{goTo("jobs");openJob=b.dataset.planJob;renderJobs()});
   v.querySelectorAll("[data-plan-person]").forEach(b=>b.onclick=()=>{goTo("people");openPerson=b.dataset.planPerson;renderPeople()});
+  v.querySelectorAll("[data-td-tab]").forEach(b=>b.onclick=()=>goTo(b.dataset.tdTab));
   v.querySelectorAll("[data-td-scroll]").forEach(b=>b.onclick=()=>{const t=document.getElementById(b.dataset.tdScroll);if(t)t.scrollIntoView({behavior:"smooth"})})}
 function dailyIndex(){const open=T.map((_,i)=>i).filter(i=>!S.done[i]);const pool=open.length?open:T.map((_,i)=>i);let h=0;for(const c of today())h=(h*31+c.charCodeAt(0))%9973;return pool[h%pool.length]}
 function renderToday(){
@@ -395,6 +422,7 @@ function renderToday(){
   v.innerHTML=`${nudge}
   ${todayList(didTicket)}
   <div id="thanksBox">${thanksCard()}</div>
+  ${emailCard()}
   ${pushCard()}
   ${gmailCard()}
   <div class="stats"><div class="stat"><b>${Object.keys(S.done).length} / ${T.length}</b><span>tickets resolved</span></div><div class="stat"><b>${streak()} ${streak()===1?"day":"days"}</b><span>practice streak</span></div></div>
@@ -403,7 +431,7 @@ function renderToday(){
     <div class="row"><label class="field" for="rTime">Study reminder time<input type="time" id="rTime" value="${esc(D.remind.time)}"></label>
     <label class="field" for="rDays">Days<select id="rDays"><option value="work"${D.remind.days==="work"?" selected":""}>Weekdays</option><option value="all"${D.remind.days==="all"?" selected":""}>Every day</option></select></label></div>
     <button class="btn primary" id="ics">Add reminders to my calendar</button></div>`;
-  renderTicket(i,$("#todayTicket"),()=>renderToday());bindGmail(v);bindPlan(v);bindPush(v);bindThanks(v);
+  renderTicket(i,$("#todayTicket"),()=>renderToday());bindGmail(v);bindPlan(v);bindPush(v);bindThanks(v);bindEmail(v);
   v.querySelectorAll("[data-fu-job]").forEach(b=>b.onclick=()=>{jstate(b.dataset.fuJob).followedUp=today();saveD();syncStatus(b.dataset.fuJob);renderAll();toast("Follow-up logged")});
   v.querySelectorAll("[data-fu-person]").forEach(b=>b.onclick=()=>{const p=D.people.find(x=>x.id===b.dataset.fuPerson);if(p){p.followedUp=today();saveD();syncPerson(p);renderAll();toast("Follow-up logged")}});
   $("#rTime").onchange=e=>{D.remind.time=e.target.value;saveD();syncPractice()};
@@ -450,12 +478,12 @@ function renderJobs(){
   if(openJob){const j=JOBS.find(x=>x.id===openJob);if(j){renderJob(j,v);return}openJob=null}
   const order=s=>({"Interview":0,"Offer":0,"Replied":1,"To apply":2,"Applied":3,"Rejected":4,"Passed":5})[s]??6;
   const list=[...JOBS].sort((a,b)=>order(jstate(a.id).status)-order(jstate(b.id).status)||(b.match||0)-(a.match||0));
-  v.innerHTML=`<p class="muted">Vetted roles, best match first. Tap one for the details, your resume name, and people you know there.</p>`+
+  v.innerHTML=`<p class="muted">Vetted roles, best match first. Tap one for the details, your resume name, and people you know there.</p>`+bankHtml("list")+
   list.map(j=>{const s=jstate(j.id);const pk=s.status==="To apply"?"open":(s.status==="Passed"||s.status==="Rejected"?"info":"done");const n=peopleAt(j.company).length;
     return `<button class="item" data-job="${esc(j.id)}"><span class="t"><b>${esc(j.company)}</b> · ${esc(j.role)}<br><span class="muted">${j.match?esc(j.match)+"% match · ":""}${esc(j.pay||"")}${n?` · ${n} ${n===1?"contact":"contacts"}`:""}</span></span><span class="pill ${pk}">${esc(s.status)}</span></button>`}).join("")+
   `<div class="card"><h3>Add a job you found</h3><div class="row"><label class="field" for="nCo">Company<input id="nCo"></label><label class="field" for="nRole">Role<input id="nRole"></label></div>
   <label class="field" for="nUrl">Job link<input id="nUrl" inputmode="url"></label><button class="btn" id="addJob">Add job</button></div>`;
-  v.querySelectorAll("[data-job]").forEach(b=>b.onclick=()=>{openJob=b.dataset.job;renderJobs();window.scrollTo(0,0)});
+  v.querySelectorAll("[data-job]").forEach(b=>b.onclick=()=>{openJob=b.dataset.job;renderJobs();window.scrollTo(0,0)});bindBank(v,renderJobs);
   $("#addJob").onclick=async()=>{const co=$("#nCo").value.trim(),ro=$("#nRole").value.trim();if(!co||!ro){toast("Add a company and a role");return}
     const nj={id:"c"+Date.now().toString(36),company:co,role:ro,url:$("#nUrl").value.trim()||null,custom:true};
     if(sb&&ME){const {error}=await sb.from("jobs").insert({...nj,created_by:ME.id});if(error){fail(error);return}}
@@ -477,13 +505,14 @@ function renderJob(j,v){
     ${(j.kit||[]).map((k,i)=>`<div style="display:flex;flex-direction:column;gap:6px;border-top:1px dashed var(--line);padding-top:10px"><b>${esc(k.label)}</b><p>${esc(k.text)}</p><button class="btn small" data-kit="${i}" style="align-self:flex-start">Copy</button></div>`).join("")}
     ${(j.kit||[]).some(k=>/\[/.test(k.text))?`<p class="muted">Parts in [brackets] need your own details before you paste them in.</p>`:""}
   </div>`:""}
+  ${bankHtml("job")}
   <article class="card">
   <label class="field" for="jStatus">Status<select id="jStatus">${STAGES.map(x=>`<option${x===s.status?" selected":""}>${x}</option>`).join("")}</select></label>
   <label class="field" for="jNotes">Notes<textarea id="jNotes" placeholder="Recruiter name, interview date, what they asked...">${esc(s.notes||"")}</textarea></label></article>
   ${s.status!=="Interview"&&j.prep?prepHtml(j,false):""}
   ${EMAILS.filter(m=>m.job_id===j.id).length?`<h2>Emails about this job</h2>${EMAILS.filter(m=>m.job_id===j.id).map(m=>emailRow(m,false)).join("")}`:""}
   <div class="card"><h3>People you know at ${esc(j.company)}</h3>${j.linkedin?`<div class="row"><a class="btn small" href="${esc(j.linkedin)}" target="_blank" rel="noopener">Company on LinkedIn</a><a class="btn small" href="${esc(j.linkedin.replace(/\/$/,""))}/people/?keywords=recruiter" target="_blank" rel="noopener">Find recruiters</a><a class="btn small" href="${esc(j.linkedin.replace(/\/$/,""))}/people/?keywords=support" target="_blank" rel="noopener">Find the support team</a></div>`:""}${ppl.length?ppl.map(p=>`<div class="spread"><span>${esc(p.first)} ${esc(p.last)} · <span class="muted">${esc(p.position||"")}</span></span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>`).join(""):`<p class="muted">No one yet. Import your LinkedIn connections on the People tab, or add someone you find.</p>`}</div>`;
-  $("#backJobs").onclick=()=>{openJob=null;renderJobs()};
+  $("#backJobs").onclick=()=>{openJob=null;renderJobs()};bindBank(v,renderJobs);
   const dl=$("#dlResume");if(dl)dl.onclick=()=>downloadResume(j.resume,dl);
   v.querySelectorAll("[data-kit]").forEach(b=>b.onclick=()=>copy(j.kit[+b.dataset.kit].text));
   $("#jStatus").onchange=e=>setJobStatus(j,e.target.value);

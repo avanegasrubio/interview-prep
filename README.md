@@ -44,3 +44,7 @@ Google credentials live only in Supabase secrets (GOOGLE_CLIENT_ID, GOOGLE_CLIEN
 - **Push notifications** (`push-daily`, pg_cron `push-daily` at 12:30 UTC): one morning summary per member. VAPID keys live in Supabase Vault and are read only by the service role.
 - **Job feed**: a daily scheduled task inserts matching postings into `jobs` with `review = 'pending'`; the admin approves or passes in Admin, under "To vet".
 - **Interview prep** lives in `jobs.prep` and opens on the job when its status is Interview. A thank-you note reminder appears on Today for 3 days after an interview.
+
+## Morning email and answer bank
+- **Morning email** (`daily-email`): builds each member's Today list as an email. It sends nothing itself. A Google Apps Script in the admin's Gmail calls it each morning with the `x-mail-secret` header (the secret lives in Supabase Vault as `mail_script_secret`, never in this repo) and sends the result with MailApp, so it costs nothing. Members can turn it off on the Today tab (`practice.remind.email`).
+- **Application answer bank** (`answers` table, one private row per member): the questions most application forms ask, with Copy and Edit buttons on the Jobs tab and inside each job. Schema in `supabase/migrations/answers_and_daily_email.sql`.
