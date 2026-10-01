@@ -569,8 +569,21 @@ function templates(p){
   const role=j?j.role:"support engineering",co=p.company||"your company";
   const recruiter=/recruit|talent|sourc|hiring|people/i.test(p.position||"");
   const link=j&&j.url?`\n\nHere's the posting: ${j.url}`:"";
+  const pos=p.position||"";const mgr=/manag|director|head of|lead|vp|chief/i.test(pos),eng=/engineer|developer|support|solutions|technical|architect|analyst/i.test(pos);
+  const bg="I support APIs on Google Cloud at GE Aerospace";
+  const title=pos.replace(/\s+at\s+.*$/i,"").trim();
+  const cands=recruiter
+    ?[`Hi ${p.first}, I'm applying for the ${role} role at ${co}. ${bg}. I'd love to connect and share my background.`,`Hi ${p.first}, I'm applying for the ${role} role at ${co}. I'd love to connect and share my background.`]
+    :mgr
+    ?[`Hi ${p.first}, I'm applying for the ${role} role on your team at ${co}. ${bg}. I'd value connecting.`,`Hi ${p.first}, I'm applying for the ${role} role at ${co}. I'd value connecting.`]
+    :eng
+    ?[`Hi ${p.first}, I'm applying for the ${role} role at ${co}. ${bg}, so your work as ${/^[aeiou]/i.test(title)?"an":"a"} ${title} caught my eye. I'd love to connect.`,`Hi ${p.first}, I'm applying for the ${role} role at ${co}. I'd love to connect and hear about the team.`]
+    :[`Hi ${p.first}, I'm applying for the ${role} role at ${co}. ${bg}. I'd love to connect.`,`Hi ${p.first}, I'm applying for the ${role} role at ${co}. I'd love to connect.`];
+  const LIM=200;
+  const connect=cands.find(x=>x.length<=LIM)||`Hi ${p.first}, I'd love to connect. I'm applying at ${co}.`.slice(0,LIM);
   return {
-   connect:`Hi ${p.first}, I'm applying for the ${role} role at ${co}. My background is API support on Google Cloud at GE Aerospace plus 3 years of web development. I'd love to connect and learn a bit about the team.`,
+   connect,
+   lifollow:`Hi ${p.first}, just following up on my note about the ${role} role at ${co}. No worries if you're busy. If you have a minute, I'd value any advice on standing out for it.${link}\n\nThanks either way,\nEdwin`,
    email:`Hi ${p.first},\n\nI'm applying for the ${role} role at ${co} and wanted to reach out directly.${link}\n\nAt GE Aerospace I supported an enterprise API platform on Google Cloud Apigee, resolving 15+ tickets a week on authentication, access and configuration issues and helping cut our backlog by 30%. For 3+ years I've also been the technical contact for a client's production website.\n\nI've attached my resume. ${recruiter?"If it would help, I'm happy to share more about my background. Is there anything you'd suggest I highlight?":"If you're open to it, I'd love 15 minutes to hear about the team, or any advice on standing out."}\n\nThanks for your time,\nEdwin Allen`,
    message:recruiter
      ?`Hi ${p.first}, thanks for connecting. I'm applying for the ${role} role at ${co} and sent my resume to your email as well. At GE Aerospace I resolved 15+ API tickets a week on Google Cloud Apigee and helped cut our backlog by 30%. Is there anything you'd suggest I highlight?`
@@ -613,11 +626,12 @@ function renderPerson(p,v){
   const st=["To message","Messaged","Replied","Referral"];const t=templates(p);const j=jobFor(p);const S2=seqState(p);
   const stepHtml=(s,i)=>{const isNext=S2.next&&S2.next.k===s.k;const done=s.done&&s.done!=="skip";
     const pill=done?`<span class="pill done">Done ${nice(s.done)}</span>`:s.done==="skip"?`<span class="pill info">Skipped</span>`:S2.stopped?`<span class="pill info">Not needed</span>`:`<span class="pill ${isNext&&daysSince(s.due)>=0?"open":"info"}">${isNext?whenLabel(s.due):"Later"}</span>`;
-    const body=isNext?`<p class="muted">${esc(s.how)}</p><p data-tpl="${s.k}" style="white-space:pre-line;overflow-wrap:anywhere">${esc(t[s.k])}</p>
-      <div class="row">${s.k==="connect"||s.k==="message"||(s.k==="followup"&&!p.email)?`<a class="btn small" href="${esc(p.url)}" target="_blank" rel="noopener">Open LinkedIn</a>`:""}
+    const tk=s.k==="followup"&&!p.email?"lifollow":s.k;
+    const body=isNext?`<p class="muted">${esc(s.how)}</p><p data-tpl="${s.k}" style="white-space:pre-line;overflow-wrap:anywhere">${esc(t[tk])}</p>${s.k==="connect"?`<p class="muted">${t.connect.length} of 200 characters, the LinkedIn limit for a connection note.</p>`:""}
+      <div class="row">${s.k==="connect"||s.k==="message"||(s.k==="followup"&&!p.email)?`<a class="btn small" href="${esc(p.url)}" target="_blank" rel="noopener">Open profile</a>`:""}
       ${s.k==="email"&&j&&j.resume?`<button class="btn small" data-res="${esc(j.resume)}">Download resume</button>`:""}
       ${(s.k==="email"||s.k==="followup")&&p.email?`<button class="btn small primary" data-draft="${s.k}">Put it in my Gmail drafts</button><a class="btn small" href="${esc(mailto(p,s.k))}">Open email</a>`:""}
-      <button class="btn small" data-copy="${s.k}">Copy</button></div>
+      <button class="btn small" data-copy="${tk}">Copy</button></div>
       <div class="row"><button class="btn primary" data-done="${s.k}">I sent it</button>${s.optional||s.k==="followup"?`<button class="btn" data-skip="${s.k}">Skip</button>`:""}</div>`:"";
     return `<div class="card${isNext?"":" dim"}"><div class="spread"><span class="tid">Step ${i+1}</span>${pill}</div><h3>${esc(s.title)}</h3>${body}</div>`};
   v.innerHTML=`<button class="btn" id="backP">Back to people</button>
