@@ -44,7 +44,7 @@ async function accessToken(refresh: string) {
   });
   const j = await r.json();
   if (!r.ok) return { error: j.error ?? "token_error" };
-  return { token: j.access_token as string };
+  return { token: j.access_token as string, scope: (j.scope as string) ?? null };
 }
 
 const header = (m: any, name: string) =>
@@ -62,6 +62,49 @@ function companyGuess(sender: string) {
   return dom.split(".").slice(-2, -1)[0] ?? null;
 }
 
+// Matches the member's own emails to contacts that have an email address:
+// a sent email checks off the "email" step (a second one checks off the follow-up),
+// and any email from the contact marks them Replied and stops the sequence.
+const EMAIL_OK = /^[^\s@"()<>,;:]+@[^\s@"()<>,;:]+\.[a-z]{2,}$/i;
+async function listDates(H: Record<string, string>, q: string, max: number): Promise<string[]> {
+  const l = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${max}&q=${encodeURIComponent(q)}`,
+    { headers: H },
+  ).then((r) => r.json());
+  const out: string[] = [];
+  for (const m of l.messages ?? []) {
+    const d = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=minimal`, { headers: H }).then((r) => r.json());
+    if (d.internalDate) out.push(new Date(Number(d.internalDate)).toISOString().slice(0, 10));
+  }
+  return out.sort();
+}
+async function trackContacts(admin: SupabaseClient, userId: string, H: Record<string, string>) {
+  const { data: ppl } = await admin.from("people")
+    .select("id, first, last, email, status, seq, messaged_at, replied_at, followed_up")
+    .eq("user_id", userId).not("email", "is", null).neq("email", "")
+    .not("status", "in", "(Replied,Referral)").limit(40);
+  let changed = 0;
+  for (const p of ppl ?? []) {
+    const addr = String(p.email).trim().toLowerCase();
+    if (!EMAIL_OK.test(addr)) continue;
+    const sent = await listDates(H, `in:sent to:${addr} newer_than:120d`, 3);
+    const got = await listDates(H, `from:${addr} -in:sent newer_than:120d`, 1);
+    const seq = { ...(p.seq ?? {}) };
+    const upd: Record<string, unknown> = {};
+    if (sent[0] && !seq.email) { seq.email = sent[0]; upd.seq = seq; }
+    if (sent[1] && seq.email && seq.email !== "skip" && !seq.followup) { seq.followup = sent[1]; upd.seq = seq; upd.followed_up = sent[1]; }
+    if (sent[0] && p.status === "To message") { upd.status = "Messaged"; upd.messaged_at = p.messaged_at ?? sent[0]; }
+    if (got[0]) { upd.status = "Replied"; upd.replied_at = p.replied_at ?? got[0]; }
+    if (!Object.keys(upd).length) continue;
+    await admin.from("people").update(upd).eq("id", p.id).eq("user_id", userId);
+    if (got[0] && p.status !== "Replied") {
+      await admin.from("events").insert({ user_id: userId, type: "reply", label: `${p.first} ${p.last ?? ""} (email)`.replace(/ +/g, " "), at: got[0] });
+    }
+    changed++;
+  }
+  return changed;
+}
+
 async function syncUser(admin: SupabaseClient, row: any, jobs: any[]) {
   const at = await accessToken(row.refresh_token);
   if (!at.token) {
@@ -69,6 +112,8 @@ async function syncUser(admin: SupabaseClient, row: any, jobs: any[]) {
     return { reconnect: true, found: 0, added: 0, updated: 0 };
   }
   const H = { Authorization: `Bearer ${at.token}` };
+  if (at.scope) await admin.from("gmail_tokens").update({ scopes: at.scope }).eq("user_id", row.user_id);
+  const contacts = await trackContacts(admin, row.user_id, H).catch((e) => { console.error(e); return 0; });
   const list = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=60&q=${encodeURIComponent(QUERY)}`,
     { headers: H },
@@ -76,7 +121,7 @@ async function syncUser(admin: SupabaseClient, row: any, jobs: any[]) {
   const ids: string[] = (list.messages ?? []).map((m: any) => m.id);
   if (!ids.length) {
     await admin.from("gmail_tokens").update({ last_sync_at: new Date().toISOString() }).eq("user_id", row.user_id);
-    return { reconnect: false, found: 0, added: 0, updated: 0 };
+    return { reconnect: false, found: 0, added: 0, updated: 0, contacts };
   }
   const { data: seen } = await admin.from("email_updates").select("message_id").eq("user_id", row.user_id).in("message_id", ids);
   const seenSet = new Set((seen ?? []).map((s: any) => s.message_id));
@@ -147,7 +192,7 @@ async function syncUser(admin: SupabaseClient, row: any, jobs: any[]) {
     }
   }
   await admin.from("gmail_tokens").update({ last_sync_at: new Date().toISOString() }).eq("user_id", row.user_id);
-  return { reconnect: false, found: fresh.length, added, updated };
+  return { reconnect: false, found: fresh.length, added, updated, contacts };
 }
 
 Deno.serve(async (req) => {

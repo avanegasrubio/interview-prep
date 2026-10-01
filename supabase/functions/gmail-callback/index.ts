@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
     user_id: st.user_id,
     gmail_address: address,
     refresh_token: tok.refresh_token,
+    scopes: tok.scope ?? null,
     connected_at: new Date().toISOString(),
   });
   if (error) { console.error(error); return back("error"); }

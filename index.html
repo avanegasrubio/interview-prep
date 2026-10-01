@@ -92,6 +92,7 @@ audio{width:100%}
 .score span{font-size:12px;color:var(--muted)}
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
 .card.dim{opacity:.72}
+details.prep summary{cursor:pointer;list-style:none;padding:2px 0}details.prep summary::-webkit-details-marker{display:none}details.prep h3{margin-top:14px}details.prep ul{margin:6px 0 0 18px;padding:0}details.prep li{margin:4px 0}.qa{border-top:1px dashed var(--line);padding-top:8px;margin-top:8px}.qa p{margin:2px 0}
 </style>
 </head>
 <body>
@@ -176,13 +177,13 @@ let pTimer=null;
 function syncPractice(){if(!sb||!ME||VIEWAS)return;clearTimeout(pTimer);pTimer=setTimeout(async()=>{
   const {error}=await sb.from("practice").upsert({user_id:ME.id,done:S.done,days:S.days,remind:D.remind,updated_at:new Date().toISOString()});fail(error)},600)}
 async function syncStatus(id){if(!sb||!ME||ro())return;const st=D.jobs[id];if(!st)return;
-  const {error}=await sb.from("job_status").upsert({user_id:ME.id,job_id:id,status:st.status,applied_at:st.appliedAt||null,reply_at:st.replyAt||null,interview_at:st.interviewAt||null,offer_at:st.offerAt||null,followed_up:st.followedUp||null,notes:st.notes||null,updated_at:new Date().toISOString()});fail(error)}
+  const {error}=await sb.from("job_status").upsert({user_id:ME.id,job_id:id,status:st.status,applied_at:st.appliedAt||null,reply_at:st.replyAt||null,interview_at:st.interviewAt||null,offer_at:st.offerAt||null,followed_up:st.followedUp||null,thanked_at:st.thankedAt||null,notes:st.notes||null,updated_at:new Date().toISOString()});fail(error)}
 const personRow=p=>({id:p.id,user_id:p.user_id||ME.id,first:p.first,last:p.last,company:p.company,position:p.position,url:p.url,email:p.email||null,seq:p.seq||{},status:p.status,messaged_at:p.messagedAt||null,replied_at:p.repliedAt||null,followed_up:p.followedUp||null,source:p.source||null});
-const personFrom=r=>({id:r.id,user_id:r.user_id,first:r.first||"",last:r.last||"",company:r.company||"",position:r.position||"",url:r.url||"",email:r.email||"",seq:r.seq||{},addedAt:(r.created_at||"").slice(0,10)||null,status:r.status,messagedAt:r.messaged_at,repliedAt:r.replied_at,followedUp:r.followed_up,source:r.source});
+const personFrom=r=>({id:r.id,user_id:r.user_id,first:r.first||"",last:r.last||"",company:r.company||"",position:r.position||"",url:r.url||"",email:r.email||"",seq:r.seq||{},addedAt:r.created_at?dkey(new Date(r.created_at)):null,status:r.status,messagedAt:r.messaged_at,repliedAt:r.replied_at,followedUp:r.followed_up,source:r.source});
 async function syncPerson(p){if(!sb||!ME||ro())return;const {error}=await sb.from("people").upsert(personRow(p));fail(error)}
 async function syncPeopleBulk(list){if(!sb||!ME||ro())return;for(let i=0;i<list.length;i+=400){const {error}=await sb.from("people").upsert(list.slice(i,i+400).map(personRow));if(error){fail(error);return}}}
 async function removePerson(id){if(!sb||!ME||ro())return;const {error}=await sb.from("people").delete().eq("id",id);fail(error)}
-const jobFrom=r=>({id:r.id,company:r.company,role:r.role,match:r.match,pay:r.pay,where:r.location,url:r.url,resume:r.resume,why:r.why,watch:r.watch,added:r.added,custom:r.custom,active:r.active,kit:r.kit||[],linkedin:r.linkedin});
+const jobFrom=r=>({id:r.id,company:r.company,role:r.role,match:r.match,pay:r.pay,where:r.location,url:r.url,resume:r.resume,why:r.why,watch:r.watch,added:r.added,custom:r.custom,active:r.active,kit:r.kit||[],linkedin:r.linkedin,prep:r.prep||null,review:r.review,foundNote:r.found_note});
 
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
@@ -224,7 +225,7 @@ async function loadAll(){
     await Promise.all(ups);save("edwin-migrated-"+ME.id,true);
     if(ups.length){toast("Your progress on this phone is now saved to your account");return loadAll()}
   }
-  D.jobs={};(st.data||[]).forEach(r=>D.jobs[r.job_id]={status:r.status,appliedAt:r.applied_at,replyAt:r.reply_at,interviewAt:r.interview_at,offerAt:r.offer_at,followedUp:r.followed_up,notes:r.notes});
+  D.jobs={};(st.data||[]).forEach(r=>D.jobs[r.job_id]={status:r.status,appliedAt:r.applied_at,replyAt:r.reply_at,interviewAt:r.interview_at,offerAt:r.offer_at,followedUp:r.followed_up,thankedAt:r.thanked_at,notes:r.notes});
   D.people=(pp.data||[]).map(personFrom);
   D.events=(ev.data||[]).map(r=>({type:r.type,label:r.label,at:r.at}));
   if(pr.data){S.done=pr.data.done||{};S.days=pr.data.days||[];D.remind=pr.data.remind||D.remind}
@@ -253,7 +254,7 @@ const KIND={applied:["Application received","done"],reply:["Recruiter reply","do
 async function loadEmail(){if(!sb||!ME)return;
   const [g,e]=await Promise.all([VIEWAS?Promise.resolve({data:[VIEWAS.gmail]}):sb.rpc("gmail_status"),sb.from("email_updates").select("*").eq("user_id",uid()).eq("dismissed",false).order("received_at",{ascending:false}).limit(40)]);
   GMAIL=g.data&&g.data[0]||{connected:false};EMAILS=e.data||[];if(tab==="today"||tab==="jobs")renderAll()}
-async function connectGmail(){if(ro())return;const {data,error}=await sb.functions.invoke("gmail-connect",{body:{}});
+async function connectGmail(drafts){if(ro())return;const {data,error}=await sb.functions.invoke("gmail-connect",{body:{drafts:!!drafts}});
   if(error||!data||!data.url){let msg="Couldn't start the Gmail connection.";try{const b=await error.context.json();if(b.error)msg=b.error}catch(_){}toast(msg);return}
   location.href=data.url}
 async function checkEmail(btn){if(ro())return;if(btn){btn.disabled=true;btn.textContent="Checking..."}
@@ -271,11 +272,71 @@ function gmailCard(){
   if(!GMAIL.connected)return `<div class="card"><h3>Connect Gmail</h3><p class="muted">The app reads only job emails (application confirmations, recruiter replies, interviews and rejections) and updates your jobs and scoreboard for you. It can't send, delete or change anything.</p><button class="btn primary" id="gConnect">Connect Gmail</button></div>`;
   const recent=EMAILS.slice(0,5);
   return `<div class="card"><div class="spread"><h3>Gmail</h3><span class="pill done">Connected</span></div>
-    <p class="muted">${esc(GMAIL.gmail_address||"")}${GMAIL.last_sync_at?` · last checked ${new Date(GMAIL.last_sync_at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}`:" · not checked yet"}. Checks automatically every morning and evening.</p>
+    <p class="muted">${esc(GMAIL.gmail_address||"")}${GMAIL.last_sync_at?` · last checked ${new Date(GMAIL.last_sync_at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}`:" · not checked yet"}. Checks automatically every morning and evening, and checks off outreach steps when you email a contact or they reply.</p>
+    ${GMAIL.drafts?`<p class="muted">Drafts allowed: the app can put ready-to-send emails in your Drafts. It never sends.</p>`:`<div class="nudge"><b>Let the app write your drafts.</b> One tap puts each outreach email in your Gmail Drafts with the right resume attached. You review and send. The app still can't send anything itself.<div class="row" style="margin-top:8px"><button class="btn primary small" id="gDrafts">Allow drafts</button></div></div>`}
     <button class="btn" id="gSync">Check my email now</button></div>
   ${recent.length?`<h2>From your inbox</h2>${recent.map(m=>emailRow(m,true)).join("")}`:""}`}
-function bindGmail(v){const c=v.querySelector("#gConnect");if(c)c.onclick=connectGmail;const g=v.querySelector("#gSync");if(g)g.onclick=()=>checkEmail(g);
+function bindGmail(v){const c=v.querySelector("#gConnect");if(c)c.onclick=()=>connectGmail(false);const gd=v.querySelector("#gDrafts");if(gd)gd.onclick=()=>connectGmail(true);const g=v.querySelector("#gSync");if(g)g.onclick=()=>checkEmail(g);
   v.querySelectorAll("[data-dismiss]").forEach(b=>b.onclick=async()=>{if(ro())return;const id=+b.dataset.dismiss;await sb.from("email_updates").update({dismissed:true}).eq("id",id);EMAILS=EMAILS.filter(m=>m.id!==id);renderAll()})}
+
+/* ---------- push notifications ---------- */
+const VAPID_PUB="BIQjYZgwOiiVJQqKim40u4wLTKo--OkUmveMYc1La2UvRwioqeTIW0xH1hCVk1havox1LMEeA8wkU64APr2pL_s";
+let PUSH="unknown";
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent),standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+async function pushState(){
+  if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window))return isIOS&&!standalone?"install":"unsupported";
+  if(Notification.permission==="denied")return "denied";
+  const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();return sub?"on":"off"}
+const u8=b=>{const s=atob((b+"===".slice((b.length+3)%4)).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from(s,c=>c.charCodeAt(0))};
+async function enablePush(btn){if(ro())return;btn.disabled=true;
+  try{const perm=await Notification.requestPermission();if(perm!=="granted"){toast("Notifications weren't allowed");btn.disabled=false;PUSH=await pushState();renderToday();return}
+    const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8(VAPID_PUB)});
+    const j=sub.toJSON();const {error}=await sb.from("push_subscriptions").upsert({endpoint:j.endpoint,user_id:ME.id,p256dh:j.keys.p256dh,auth:j.keys.auth});
+    if(error){fail(error);btn.disabled=false;return}
+    PUSH="on";toast("Notifications on");renderToday();testPush()}
+  catch(e){console.error(e);toast("Couldn't turn on notifications");btn.disabled=false}}
+async function testPush(){if(ro())return;const {data,error}=await sb.functions.invoke("push-daily",{body:{test:true}});if(error||!data||!data.sent)toast("Test didn't arrive yet. Try again in a minute.")}
+async function disablePush(){if(ro())return;const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
+  if(sub){await sb.from("push_subscriptions").delete().eq("endpoint",sub.endpoint);await sub.unsubscribe()}PUSH="off";renderToday();toast("Notifications off")}
+function pushCard(){if(VIEWAS)return "";
+  if(PUSH==="unknown"){pushState().then(x=>{PUSH=x;if(tab==="today")renderToday()});return ""}
+  if(PUSH==="unsupported")return "";
+  const body={install:`<p class="muted">On iPhone, notifications work once the app is on your Home Screen: tap Share, then Add to Home Screen, and open it from there.</p>`,
+    denied:`<p class="muted">Notifications are blocked for this app. Turn them on in your phone's Settings, then come back here.</p>`,
+    off:`<p class="muted">One notification each morning with exactly what's due: who to message, follow-ups and thank-you notes.</p><button class="btn primary" id="pushOn">Turn on notifications</button>`,
+    on:`<p class="muted">You'll get one each morning at about 8:30. </p><div class="row"><button class="btn small" id="pushTest">Send a test</button><button class="btn small" id="pushOff">Turn off</button></div>`}[PUSH];
+  return `<div class="card"><div class="spread"><h3>Phone notifications</h3>${PUSH==="on"?`<span class="pill done">On</span>`:""}</div>${body}</div>`}
+function bindPush(v){const a=v.querySelector("#pushOn");if(a)a.onclick=()=>enablePush(a);const t=v.querySelector("#pushTest");if(t)t.onclick=()=>{testPush();toast("Sending a test...")};const o=v.querySelector("#pushOff");if(o)o.onclick=disablePush}
+
+/* ---------- thank-you notes ---------- */
+function thanksDue(){return JOBS.filter(j=>{const s=jstate(j.id);return s.status==="Interview"&&s.interviewAt&&daysSince(s.interviewAt)<=3&&!s.thankedAt})}
+const thanksText=j=>`Hi [name],\n\nThank you for taking the time to talk with me today about the ${j.role} role. I enjoyed learning about [one thing you discussed], and it made me even more excited about the work your team is doing at ${j.company}.\n\n[One sentence connecting your experience to something they mentioned.]\n\nI'm looking forward to the next steps. Thanks again,\nEdwin Allen`;
+function thanksCard(){const d=thanksDue();if(!d.length)return "";
+  return d.map(j=>`<div class="card"><div class="spread"><h3>Send a thank-you note</h3><span class="pill open">${esc(j.company)}</span></div>
+    <p class="muted">Within 24 hours of the interview. Email it to each person you met, and fill in the [brackets].</p>
+    <p style="white-space:pre-line">${esc(thanksText(j))}</p>
+    <div class="row"><button class="btn small" data-thx-copy="${esc(j.id)}">Copy</button><button class="btn primary small" data-thx-done="${esc(j.id)}">I sent it</button></div></div>`).join("")}
+function bindThanks(v){
+  v.querySelectorAll("[data-thx-copy]").forEach(b=>b.onclick=()=>{const j=JOBS.find(x=>x.id===b.dataset.thxCopy);if(j)copy(thanksText(j))});
+  v.querySelectorAll("[data-thx-done]").forEach(b=>b.onclick=()=>{const id=b.dataset.thxDone;jstate(id).thankedAt=today();saveD();syncStatus(id);renderAll();toast("Nice. Logged")})}
+
+/* ---------- interview prep pack ---------- */
+const GENERIC_PREP={about:"",focus:["Clear, structured answers (Situation, Task, Action, Result)","How you troubleshoot something you've never seen","How you communicate with non-technical people"],
+  questions:[{q:"Tell me about yourself.",use:"Two minutes: GE Aerospace API support, 3+ years supporting a client's production website, and why this role is the next step."},
+    {q:"Tell me about a hard technical problem you solved.",use:"GE Aerospace: an authentication failure you reproduced, traced in the logs, and fixed or escalated with a diagnosis."},
+    {q:"Tell me about a time you dealt with a frustrated person.",use:"Plain language, realistic timeline, follow-up before they had to ask."},
+    {q:"Why this company?",use:"One specific thing about their product or customers, plus how your experience fits."}],
+  technical:[],ask:["What does success look like in the first 90 days?","What do people who do well on this team have in common?","What are the next steps in the process?"],tips:["Have your resume and the job posting open during the call."]};
+function prepHtml(j,open){const p=j.prep||GENERIC_PREP;const li=a=>(a||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+  return `<details class="card prep"${open?" open":""}><summary><b>Interview prep for ${esc(j.company)}</b>${open?"":` <span class="muted">· tap to open</span>`}</summary>
+  ${p.about?`<h3>What they do</h3><p>${esc(p.about)}</p>`:""}
+  ${(p.focus||[]).length?`<h3>What they'll look for</h3><ul>${li(p.focus)}</ul>`:""}
+  <h3>Questions to expect</h3>${(p.questions||[]).map(x=>`<div class="qa"><p><b>${esc(x.q)}</b></p><p class="muted">${esc(x.use)}</p></div>`).join("")}
+  ${(p.technical||[]).length?`<h3>Technical questions</h3>${p.technical.map(x=>`<div class="qa"><p><b>${esc(x.q)}</b></p><p class="muted">${esc(x.a)}</p></div>`).join("")}`:""}
+  <h3>Questions for you to ask</h3><ul>${li(p.ask)}</ul>
+  ${(p.tips||[]).length?`<h3>Tips</h3><ul>${li(p.tips)}</ul>`:""}
+  <p class="muted">Practice two of these out loud before the call. After it, a thank-you note reminder shows up on Today.</p></details>`}
 
 /* ---------- TODAY ---------- */
 function planCard(didTicket,didApply){
@@ -309,7 +370,9 @@ function renderToday(){
   const i=dailyIndex();
   v.innerHTML=`${nudge}
   ${planCard(didTicket,didApply)}
+  ${thanksCard()}
   ${fuHtml}
+  ${pushCard()}
   ${gmailCard()}
   <div class="stats"><div class="stat"><b>${Object.keys(S.done).length} / ${T.length}</b><span>tickets resolved</span></div><div class="stat"><b>${streak()} ${streak()===1?"day":"days"}</b><span>practice streak</span></div></div>
   <div id="todayTicket"></div>
@@ -317,7 +380,7 @@ function renderToday(){
     <div class="row"><label class="field" for="rTime">Study reminder time<input type="time" id="rTime" value="${esc(D.remind.time)}"></label>
     <label class="field" for="rDays">Days<select id="rDays"><option value="work"${D.remind.days==="work"?" selected":""}>Weekdays</option><option value="all"${D.remind.days==="all"?" selected":""}>Every day</option></select></label></div>
     <button class="btn primary" id="ics">Add reminders to my calendar</button></div>`;
-  renderTicket(i,$("#todayTicket"),()=>renderToday());bindGmail(v);bindPlan(v);
+  renderTicket(i,$("#todayTicket"),()=>renderToday());bindGmail(v);bindPlan(v);bindPush(v);bindThanks(v);
   v.querySelectorAll("[data-fu-job]").forEach(b=>b.onclick=()=>{jstate(b.dataset.fuJob).followedUp=today();saveD();syncStatus(b.dataset.fuJob);renderAll();toast("Follow-up logged")});
   v.querySelectorAll("[data-fu-person]").forEach(b=>b.onclick=()=>{const p=D.people.find(x=>x.id===b.dataset.fuPerson);if(p){p.followedUp=today();saveD();syncPerson(p);renderAll();toast("Follow-up logged")}});
   $("#rTime").onchange=e=>{D.remind.time=e.target.value;saveD();syncPractice()};
@@ -385,6 +448,7 @@ function renderJob(j,v){
   ${j.why?`<p><b>Why it fits:</b> ${esc(j.why)}</p>`:""}${j.watch?`<p><b>Watch out for:</b> ${esc(j.watch)}</p>`:""}
   ${j.url?`<a class="btn primary" href="${esc(j.url)}" target="_blank" rel="noopener">Open the posting</a>`:""}
   </article>
+  ${s.status==="Interview"?prepHtml(j,true):""}
   ${(j.resume||(j.kit&&j.kit.length))?`<div class="card"><h3>Apply kit</h3>
     ${j.resume?`<button class="btn" id="dlResume">Download resume (PDF)</button><p class="muted">${esc(j.resume)}.pdf</p>`:""}
     ${(j.kit||[]).map((k,i)=>`<div style="display:flex;flex-direction:column;gap:6px;border-top:1px dashed var(--line);padding-top:10px"><b>${esc(k.label)}</b><p>${esc(k.text)}</p><button class="btn small" data-kit="${i}" style="align-self:flex-start">Copy</button></div>`).join("")}
@@ -393,6 +457,7 @@ function renderJob(j,v){
   <article class="card">
   <label class="field" for="jStatus">Status<select id="jStatus">${STAGES.map(x=>`<option${x===s.status?" selected":""}>${x}</option>`).join("")}</select></label>
   <label class="field" for="jNotes">Notes<textarea id="jNotes" placeholder="Recruiter name, interview date, what they asked...">${esc(s.notes||"")}</textarea></label></article>
+  ${s.status!=="Interview"&&j.prep?prepHtml(j,false):""}
   ${EMAILS.filter(m=>m.job_id===j.id).length?`<h2>Emails about this job</h2>${EMAILS.filter(m=>m.job_id===j.id).map(m=>emailRow(m,false)).join("")}`:""}
   <div class="card"><h3>People you know at ${esc(j.company)}</h3>${j.linkedin?`<div class="row"><a class="btn small" href="${esc(j.linkedin)}" target="_blank" rel="noopener">Company on LinkedIn</a><a class="btn small" href="${esc(j.linkedin.replace(/\/$/,""))}/people/?keywords=recruiter" target="_blank" rel="noopener">Find recruiters</a><a class="btn small" href="${esc(j.linkedin.replace(/\/$/,""))}/people/?keywords=support" target="_blank" rel="noopener">Find the support team</a></div>`:""}${ppl.length?ppl.map(p=>`<div class="spread"><span>${esc(p.first)} ${esc(p.last)} · <span class="muted">${esc(p.position||"")}</span></span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>`).join(""):`<p class="muted">No one yet. Import your LinkedIn connections on the People tab, or add someone you find.</p>`}</div>`;
   $("#backJobs").onclick=()=>{openJob=null;renderJobs()};
@@ -460,13 +525,23 @@ function templates(p){
      ?`Hi ${p.first}, thanks for connecting. I'm applying for the ${role} role at ${co} and sent my resume to your email as well. At GE Aerospace I resolved 15+ API tickets a week on Google Cloud Apigee and helped cut our backlog by 30%. Is there anything you'd suggest I highlight?`
      :`Hi ${p.first}, thanks for connecting. I'm applying for the ${role} role at ${co} and would love your take on the team. What do you enjoy most about working there? If you think I'd be a fit after hearing my background, I'd be grateful for a referral, but no pressure at all.`,
    followup:`Hi ${p.first},\n\nJust following up on my note about the ${role} role. No worries if you're busy. Any quick advice would mean a lot.${link}\n\nThanks either way,\nEdwin`}}
-function mailto(p,key){const j=jobFor(p);const subj=key==="followup"?`Following up: ${j?j.role:"support engineering role"}`:`${j?j.role:"Support engineering role"} at ${p.company||"your team"}: Edwin Allen`;
+function subjectFor(p,key){const j=jobFor(p);return key==="followup"?`Following up: ${j?j.role:"support engineering role"}`:`${j?j.role:"Support engineering role"} at ${p.company||"your team"}: Edwin Allen`}
+async function createDraft(p,key,btn){if(ro())return;
+  if(!GMAIL||!GMAIL.connected){toast("Connect Gmail on the Today tab first");return}
+  if(!GMAIL.drafts){toast("Tap Allow drafts on the Today tab first");return}
+  const orig=btn.textContent;btn.disabled=true;btn.textContent="Writing your draft...";
+  const {data,error}=await sb.functions.invoke("gmail-draft",{body:{person_id:p.id,subject:subjectFor(p,key),text:templates(p)[key]}});
+  btn.disabled=false;btn.textContent=orig;
+  if(error||!data||!data.ok){let msg="Couldn't create the draft.";try{const b=await error.context.json();if(b.error)msg=b.error}catch(_){}toast(msg);return}
+  toast(data.attached?"Draft ready in Gmail with your resume attached":"Draft ready in Gmail. Attach your resume before sending");
+  if(data.url)window.open(data.url,"_blank","noopener")}
+function mailto(p,key){const subj=subjectFor(p,key);
   return `mailto:${encodeURIComponent(p.email).replace("%40","@")}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(templates(p)[key])}`}
 /* Outreach sequence: LinkedIn request, then email with resume and posting, then a LinkedIn message if they accepted, then one follow-up.
    Steps without a LinkedIn link or email are left out. p.seq holds the date each step was done, or "skip". */
 function seqSteps(p){const s=[];
   if(p.url)s.push({k:"connect",gap:0,title:"Send a LinkedIn connection request",how:"Open the profile, tap Connect, add a note, and paste this."});
-  if(p.email)s.push({k:"email",gap:p.url?2:0,title:"Email your resume and the job link",how:"Download your resume, tap the email button, attach the PDF, read it over, and send."});
+  if(p.email)s.push({k:"email",gap:p.url?2:0,title:"Email your resume and the job link",how:"Tap \"Put it in my Gmail drafts\" and your resume is attached for you. Read it over in Gmail and send. Sent emails check this step off on their own."});
   if(p.url)s.push({k:"message",gap:3,title:"Message them on LinkedIn if they accepted",how:"Only if they accepted your request. If not, skip this step.",optional:true});
   s.push({k:"followup",gap:5,title:p.email?"Send one follow-up email":"Send one follow-up message",how:"Short and friendly. After this, let it go and focus on the next person."});
   return s}
@@ -490,7 +565,7 @@ function renderPerson(p,v){
     const body=isNext?`<p class="muted">${esc(s.how)}</p><p data-tpl="${s.k}" style="white-space:pre-line;overflow-wrap:anywhere">${esc(t[s.k])}</p>
       <div class="row">${s.k==="connect"||s.k==="message"||(s.k==="followup"&&!p.email)?`<a class="btn small" href="${esc(p.url)}" target="_blank" rel="noopener">Open LinkedIn</a>`:""}
       ${s.k==="email"&&j&&j.resume?`<button class="btn small" data-res="${esc(j.resume)}">Download resume</button>`:""}
-      ${(s.k==="email"||s.k==="followup")&&p.email?`<a class="btn small" href="${esc(mailto(p,s.k))}">Open email</a>`:""}
+      ${(s.k==="email"||s.k==="followup")&&p.email?`<button class="btn small primary" data-draft="${s.k}">Put it in my Gmail drafts</button><a class="btn small" href="${esc(mailto(p,s.k))}">Open email</a>`:""}
       <button class="btn small" data-copy="${s.k}">Copy</button></div>
       <div class="row"><button class="btn primary" data-done="${s.k}">I sent it</button>${s.optional||s.k==="followup"?`<button class="btn" data-skip="${s.k}">Skip</button>`:""}</div>`:"";
     return `<div class="card${isNext?"":" dim"}"><div class="spread"><span class="tid">Step ${i+1}</span>${pill}</div><h3>${esc(s.title)}</h3>${body}</div>`};
@@ -511,6 +586,7 @@ function renderPerson(p,v){
   $("#pUrl").onchange=e=>{const x=e.target.value.trim();if(x&&!/^https?:\/\/([a-z]+\.)?linkedin\.com\//i.test(x)){toast("Paste a LinkedIn profile link");return}p.url=x;saveD();syncPerson(p);renderPerson(p,v);toast("Saved")};
   v.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copy(t[b.dataset.copy]));
   v.querySelectorAll("[data-res]").forEach(b=>b.onclick=()=>downloadResume(b.dataset.res,b));
+  v.querySelectorAll("[data-draft]").forEach(b=>b.onclick=()=>createDraft(p,b.dataset.draft,b));
   v.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{markStep(p,b.dataset.done,today());renderPerson(p,v);toast("Logged. Next step is lined up")});
   v.querySelectorAll("[data-skip]").forEach(b=>b.onclick=()=>{markStep(p,b.dataset.skip,"skip");renderPerson(p,v);toast("Skipped")});
   const b2=$("#delP");b2.onclick=()=>{if(b2.dataset.armed){D.people=D.people.filter(x=>x.id!==p.id);saveD();removePerson(p.id);openPerson=null;renderPeople();toast("Removed")}else{b2.dataset.armed=1;b2.textContent="Tap again to remove"}};
@@ -599,7 +675,9 @@ async function renderAdmin(){
       <div class="row"><label class="field" for="xCo">Company<input id="xCo"></label><label class="field" for="xPos">Role<input id="xPos"></label></div>
       <label class="field" for="xUrl">LinkedIn profile link<input id="xUrl" inputmode="url"></label><label class="field" for="xEmail">Work email (optional)<input id="xEmail" type="email" inputmode="email"></label><button class="btn primary" id="xAdd">Add to his People list</button></div>`}
   v.innerHTML=`${members.length>1?`<label class="field" for="mSel">Viewing<select id="mSel">${members.map(x=>`<option value="${esc(x.user_id)}"${x.user_id===adminMember?" selected":""}>${esc(x.display_name||x.email)}</option>`).join("")}</select></label>`:""}
-  ${viewCard}${body}
+  ${viewCard}
+  <div class="card"><div class="spread"><h3>To vet</h3><span class="tid">New each morning</span></div><div id="vetList"><p class="muted">Loading...</p></div></div>
+  ${body}
   <div class="card"><h3>Resumes</h3><p class="muted">Upload PDFs named after the job's resume file name. Only you and Edwin can open them.</p>
     <div class="row"><label class="btn" for="rUp" style="cursor:pointer">Upload resume PDFs</label><input type="file" id="rUp" accept="application/pdf" multiple hidden></div>
     <div id="rList"><p class="muted">Loading...</p></div></div>
@@ -618,6 +696,18 @@ async function renderAdmin(){
     box.innerHTML=JOBS.map(j=>{const has=j.resume&&files.some(f=>f.name===j.resume+".pdf");return `<div class="spread"><span>${esc(j.company)}</span><span class="pill ${has?"done":"open"}">${has?"Uploaded":j.resume?"Missing":"No resume set"}</span></div>`}).join("")+
       (files.length?`<p class="muted">${files.length} ${files.length===1?"file":"files"} stored.</p>`:"")};
   listResumes();
+  const listVet=async()=>{const box=$("#vetList");if(!box)return;
+    const {data,error}=await sb.from("jobs").select("*").eq("review","pending").order("match",{ascending:false});
+    if(error){box.innerHTML=`<p class="muted">Couldn't load.</p>`;return}
+    box.innerHTML=(data||[]).length?data.map(r=>`<div class="qa"><div class="spread"><b>${esc(r.company)} · ${esc(r.role)}</b>${r.match?`<span class="pill info">${esc(r.match)}%</span>`:""}</div>
+      <p class="muted">${[r.pay,r.location].filter(Boolean).map(esc).join(" · ")}</p>
+      ${r.why?`<p><b>Fits:</b> ${esc(r.why)}</p>`:""}${r.watch?`<p><b>Watch:</b> ${esc(r.watch)}</p>`:""}${r.found_note?`<p class="muted">${esc(r.found_note)}</p>`:""}
+      <div class="row">${r.url?`<a class="btn small" href="${esc(r.url)}" target="_blank" rel="noopener">Posting</a>`:""}<button class="btn small primary" data-vet-ok="${esc(r.id)}">Approve</button><button class="btn small" data-vet-no="${esc(r.id)}">Pass</button></div></div>`).join("")
+      :`<p class="muted">Nothing waiting. New matches show up here each morning.</p>`;
+    box.querySelectorAll("[data-vet-ok]").forEach(b=>b.onclick=async()=>{b.disabled=true;const {error}=await sb.from("jobs").update({active:true,review:"approved",added:today()}).eq("id",b.dataset.vetOk);if(error){fail(error);b.disabled=false;return}
+      const {data:jj}=await sb.from("jobs").select("*").eq("active",true);if(jj)JOBS=jj.map(jobFrom);toast("Approved. It's on his Jobs tab");listVet();listResumes()});
+    box.querySelectorAll("[data-vet-no]").forEach(b=>b.onclick=async()=>{b.disabled=true;const {error}=await sb.from("jobs").update({review:"declined"}).eq("id",b.dataset.vetNo);if(error){fail(error);b.disabled=false;return}toast("Passed");listVet()})};
+  listVet();
   $("#rUp").onchange=async e=>{const fs=[...e.target.files];let n=0;for(const f of fs){const {error}=await sb.storage.from("resumes").upload(f.name,f,{upsert:true,contentType:"application/pdf"});if(error)fail(error);else n++}
     toast(n+" uploaded");listResumes()};
   v.querySelectorAll("[data-archive]").forEach(b=>b.onclick=async()=>{if(!b.dataset.armed){b.dataset.armed=1;b.textContent="Tap to confirm";return}
@@ -666,9 +756,10 @@ async function enter(user){
   showApp(true);$("#signOut").hidden=false;await loadAll();
   if(gParam==="connected"){toast("Gmail connected. Checking your inbox...");checkEmail(null)}
   else if(gParam==="cancelled")toast("Gmail wasn't connected");
-  else if(gParam==="expired"||gParam==="error")toast("Gmail connection didn't finish. Try again.")}
-const gParam=new URLSearchParams(location.search).get("gmail");
-if(gParam)history.replaceState(null,"",location.pathname);
+  else if(gParam==="expired"||gParam==="error")toast("Gmail connection didn't finish. Try again.");
+  if(tParam&&views[tParam]&&tParam!=="admin")goTo(tParam)}
+const gParam=new URLSearchParams(location.search).get("gmail"),tParam=new URLSearchParams(location.search).get("tab");
+if(gParam||tParam)history.replaceState(null,"",location.pathname);
 async function boot(){
   if(!sb){renderAuth("signin");return}
   const {data:{session}}=await sb.auth.getSession();

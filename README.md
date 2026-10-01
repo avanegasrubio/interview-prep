@@ -36,3 +36,11 @@ Members can connect Gmail (read-only) from the Today tab. Server code is in supa
 - gmail-sync: finds job emails, sorts them (applied, reply, interview, offer, rejected), matches them to jobs, and updates statuses and the scoreboard. Runs on demand and at 8am and 6pm New York time.
 
 Google credentials live only in Supabase secrets (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET), never in this repo.
+
+## Outreach, drafts, notifications and the job feed
+- **Outreach steps** per contact: LinkedIn request, email with resume and job link, LinkedIn message, one follow-up. Steps are stored in `people.seq`.
+- **Gmail tracking** (`gmail-sync`, read-only): an email sent to a contact checks off the email step (a second one checks off the follow-up); any email from them marks them Replied.
+- **Gmail drafts** (`gmail-draft`): only after the member taps "Allow drafts", which adds the `gmail.compose` scope. It creates drafts with the job's resume attached and never sends.
+- **Push notifications** (`push-daily`, pg_cron `push-daily` at 12:30 UTC): one morning summary per member. VAPID keys live in Supabase Vault and are read only by the service role.
+- **Job feed**: a daily scheduled task inserts matching postings into `jobs` with `review = 'pending'`; the admin approves or passes in Admin, under "To vet".
+- **Interview prep** lives in `jobs.prep` and opens on the job when its status is Interview. A thank-you note reminder appears on Today for 3 days after an interview.

@@ -17,6 +17,8 @@ Deno.serve(async (req) => {
   }
   const url = Deno.env.get("SUPABASE_URL")!;
   const auth = req.headers.get("Authorization") ?? "";
+  let wantDrafts = false;
+  try { wantDrafts = !!(await req.json()).drafts; } catch (_) { /* no body */ }
   const userClient = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: auth } } });
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return json({ error: "Sign in first." }, 401);
@@ -34,7 +36,8 @@ Deno.serve(async (req) => {
     client_id: clientId,
     redirect_uri: `${url}/functions/v1/gmail-callback`,
     response_type: "code",
-    scope: "https://www.googleapis.com/auth/gmail.readonly",
+    // Read-only by default. "Allow drafts" adds gmail.compose, which the app uses only to create drafts.
+    scope: "https://www.googleapis.com/auth/gmail.readonly" + (wantDrafts ? " https://www.googleapis.com/auth/gmail.compose" : ""),
     access_type: "offline",
     prompt: "consent",
     include_granted_scopes: "true",
