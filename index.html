@@ -97,6 +97,7 @@ audio{width:100%}
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
 .card.dim{opacity:.72}
 details.prep summary{cursor:pointer;list-style:none;padding:2px 0}details.prep summary::-webkit-details-marker{display:none}details.prep h3{margin-top:14px}details.prep ul{margin:6px 0 0 18px;padding:0}details.prep li{margin:4px 0}.qa{border-top:1px dashed var(--line);padding-top:8px;margin-top:8px}.qa p{margin:2px 0}
+.fun{display:flex;flex-direction:column;gap:8px}.fun .bar{display:grid;grid-template-columns:84px 1fr 44px;gap:8px;align-items:center;font-size:14px}.fun .track{background:var(--bg);border:1px solid var(--line);border-radius:6px;height:22px;overflow:hidden}.fun .fill{height:100%;background:var(--accent);min-width:2px;border-radius:5px}.fun .bar b{font:600 16px var(--display);text-align:right;font-variant-numeric:tabular-nums}.fun .pct{font-size:13px;color:var(--muted);margin:-4px 0 0 92px}
 </style>
 </head>
 <body>
@@ -655,6 +656,26 @@ function renderPractice(){const v=$("#practice");
 
 /* ---------- WEEK ---------- */
 function weekCounts(){const ws=weekStart();const ev=D.events.filter(e=>e.at>=ws);const c=t=>ev.filter(e=>e.type===t).length;return{a:c("applied"),r:c("reply"),i:c("interview"),o:c("offer")}}
+/* ---------- FUNNEL (all-time, from job statuses and dates; each stage includes everything that got past it) ---------- */
+function funnelCounts(){
+  const ids=new Set(JOBS.map(j=>j.id));let sts=Object.entries(D.jobs).filter(([id])=>ids.has(id)).map(([,s])=>s);
+  const inS=(s,l)=>l.includes(s.status);
+  const offer=sts.filter(s=>s.offerAt||inS(s,["Offer"])).length;
+  const interview=sts.filter(s=>s.interviewAt||s.offerAt||inS(s,["Interview","Offer"])).length;
+  const reply=sts.filter(s=>s.replyAt||s.interviewAt||s.offerAt||inS(s,["Replied","Interview","Offer"])).length;
+  const applied=sts.filter(s=>s.appliedAt||s.replyAt||s.interviewAt||s.offerAt||inS(s,["Applied","Replied","Interview","Offer","Rejected"])).length;
+  const rejected=sts.filter(s=>s.status==="Rejected").length;
+  const pts=D.people.filter(p=>p.status&&p.status!=="To message");
+  return{applied,reply,interview,offer,rejected,tracked:JOBS.length,ppl:D.people.length,msg:pts.length,prep:pts.filter(p=>p.status==="Replied"||p.status==="Referral").length}}
+function funnelHtml(){const f=funnelCounts();
+  const rows=[["Applied",f.applied],["Replied",f.reply],["Interview",f.interview],["Offer",f.offer]];
+  const max=Math.max(1,f.applied);const pc=(a,b)=>b?Math.round(a/b*100)+"%":"–";
+  if(!f.applied&&!f.msg)return `<div class="card"><h3>Funnel</h3><p class="muted">Nothing to chart yet. Once you mark a job Applied, the funnel fills in.</p></div>`;
+  return `<div class="card"><div class="spread"><h3>Funnel</h3><span class="tid">All time</span></div>
+  <div class="fun">${rows.map((r,i)=>`<div class="bar"><span>${r[0]}</span><div class="track"><div class="fill" style="width:${Math.round(r[1]/max*100)}%"></div></div><b>${r[1]}</b></div>${i&&rows[i-1][1]?`<p class="pct">${pc(r[1],rows[i-1][1])} of ${rows[i-1][0].toLowerCase()}</p>`:""}`).join("")}</div>
+  <p class="muted">${f.applied} of ${f.tracked} jobs applied to${f.rejected?` · ${f.rejected} not moving forward`:""}. Reply rate ${pc(f.reply,f.applied)}, interview rate ${pc(f.interview,f.applied)}.</p>
+  ${f.msg?`<p class="muted"><b>Outreach:</b> ${f.msg} of ${f.ppl} contacts messaged, ${f.prep} replied (${pc(f.prep,f.msg)}).</p>`:""}</div>`}
+
 function renderWeek(){const v=$("#week");const w=weekCounts();const ws=weekStart();
   const text=`Week of ${nice(ws)}\nApplications: ${w.a}\nRecruiter replies: ${w.r}\nInterviews: ${w.i}\nOffers: ${w.o}`;
   const recent=[...D.events].reverse().slice(0,12);
@@ -662,6 +683,7 @@ function renderWeek(){const v=$("#week");const w=weekCounts();const ws=weekStart
   v.innerHTML=`<div class="card"><div class="spread"><h3>Scoreboard</h3><span class="tid">Week of ${nice(ws)}</span></div>
   <div class="score"><div><b>${w.a}</b><span>Applications</span></div><div><b>${w.r}</b><span>Replies</span></div><div><b>${w.i}</b><span>Interviews</span></div><div><b>${w.o}</b><span>Offers</span></div></div>
   <button class="btn primary" id="cpScore">Copy scoreboard</button></div>
+  ${funnelHtml()}
   <div class="card"><h3>Log something from outside the app</h3><p class="muted">Applied through LinkedIn Easy Apply, or a recruiter emailed? Log it so the scoreboard stays accurate.</p>
   <div class="row"><button class="btn small" data-log="applied">+ Application</button><button class="btn small" data-log="reply">+ Reply</button><button class="btn small" data-log="interview">+ Interview</button><button class="btn small" data-log="offer">+ Offer</button></div></div>
   <div class="card"><h3>Recent activity</h3>${recent.length?recent.map(e=>`<div class="spread"><span>${label[e.type]||e.type}${e.label?" · "+esc(e.label):""}</span><span class="tid">${nice(e.at)}</span></div>`).join(""):`<p class="muted">Nothing logged yet this week.</p>`}</div>`;
