@@ -696,7 +696,13 @@ async function renderAdmin(){
   const va=$("#viewAs");if(va)va.onclick=()=>startViewAs(m);
   const sel=$("#mSel");if(sel)sel.onchange=e=>{adminMember=e.target.value;renderAdmin()};
   const listResumes=async()=>{const {data}=await sb.storage.from("resumes").list("",{limit:100,sortBy:{column:"name",order:"asc"}});
-    const files=(data||[]).filter(f=>f.name.endsWith(".pdf"));const box=$("#rList");if(!box)return;
+    const files=(data||[]).filter(f=>f.name.endsWith(".pdf"));
+    /* Link uploads to jobs on their own: a job with no resume set (or whose file is gone) takes the one PDF whose name contains its company. */
+    const key=t=>(t||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+    for(const j of JOBS){if(j.resume&&files.some(f=>f.name===j.resume+".pdf"))continue;const co=key(j.company);if(!co)continue;
+      const hits=files.filter(f=>key(f.name).includes(co));if(hits.length!==1)continue;const nm=hits[0].name.replace(/\.pdf$/,"");
+      const {error}=await sb.from("jobs").update({resume:nm}).eq("id",j.id);if(!error)j.resume=nm}
+    const box=$("#rList");if(!box)return;
     box.innerHTML=JOBS.map(j=>{const has=j.resume&&files.some(f=>f.name===j.resume+".pdf");return `<div class="spread"><span>${esc(j.company)}</span><span class="pill ${has?"done":"open"}">${has?"Uploaded":j.resume?"Missing":"No resume set"}</span></div>`}).join("")+
       (files.length?`<p class="muted">${files.length} ${files.length===1?"file":"files"} stored.</p>`:"")};
   listResumes();
@@ -729,7 +735,7 @@ async function renderAdmin(){
     const byDay={};ev.forEach(e=>(byDay[e.day]=byDay[e.day]||[]).push(e));
     box.innerHTML=Object.keys(byDay).map(d=>`<p><b>${d===today()?"Today":nice(d)}</b></p>`+byDay[d].map(e=>`<div class="spread"><span>${e.text}</span><span class="pill ${e.cls}">${esc(e.kind)}</span></div>`).join("")).join("")};
   listLog();
-  $("#rUp").onchange=async e=>{const fs=[...e.target.files];let n=0;for(const f of fs){const {error}=await sb.storage.from("resumes").upload(f.name,f,{upsert:true,contentType:"application/pdf"});if(error)fail(error);else n++}
+  $("#rUp").onchange=async e=>{const fs=[...e.target.files];let n=0;for(const f of fs){const nm=f.name.replace(/\s*\(\d+\)(?=\.pdf$)/i,"");/* drop the " (4)" a browser adds to repeat downloads */const {error}=await sb.storage.from("resumes").upload(nm,f,{upsert:true,contentType:"application/pdf"});if(error)fail(error);else n++}
     toast(n+" uploaded");listResumes()};
   v.querySelectorAll("[data-archive]").forEach(b=>b.onclick=async()=>{if(!b.dataset.armed){b.dataset.armed=1;b.textContent="Tap to confirm";return}
     const {error}=await sb.from("jobs").update({active:false}).eq("id",b.dataset.archive);if(error){fail(error);return}JOBS=JOBS.filter(j=>j.id!==b.dataset.archive);toast("Archived");renderAdmin()});
