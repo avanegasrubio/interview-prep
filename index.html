@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f6e74">
+<meta name="theme-color" content="#8b77ff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Interview Prep">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -14,23 +14,25 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap">
 <style>
 /* Layout: one narrow column styled as a support queue. Practice questions are tickets; jobs and people are cases with statuses. */
 *,*::before,*::after{box-sizing:border-box}
 :root{
-  --bg:#eef1f4; --panel:#ffffff; --ink:#15212b; --muted:#5b6b78; --line:#d5dce3;
-  --accent:#0f6e74; --accent-ink:#ffffff; --open:#b4561b; --open-bg:#fbeadf; --done:#1d7a44; --done-bg:#e1f3e8;
-  --info:#2c5aa0; --info-bg:#e3ecf8;
-  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
-  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+  /* Invade the Code brand kit: Ground, Ink, Muted, Hairline, Signal; Flare for open items, Beacon for done, Dusk for info.
+     Signal takes Ink text (white only clears AA at large sizes). Status text uses darker shades of each hue so it passes AA. */
+  --bg:#faf8ff; --panel:#ffffff; --ink:#1a1830; --muted:#615d7d; --line:#e7e2f7;
+  --accent:#8b77ff; --accent-ink:#1a1830; --open:#a8480c; --open-bg:#ffe6d4; --done:#4a6410; --done-bg:#eef8d6;
+  --info:#5641d9; --info-bg:#ece8ff;
+  --display:"Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --body:"Instrument Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono:"DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){:root{
-  --bg:#0f161c; --panel:#18222b; --ink:#e7eef3; --muted:#9aabb8; --line:#2a3743;
-  --accent:#4fc1c6; --accent-ink:#06282a; --open:#f0a36b; --open-bg:#3a2518; --done:#6fd49a; --done-bg:#14301f;
-  --info:#8fb4ee; --info-bg:#1a2a44; color-scheme:dark}}
+  --bg:#12102a; --panel:#1c1938; --ink:#f3f1ff; --muted:#a9a4c8; --line:#2e2a52;
+  --accent:#8b77ff; --accent-ink:#12102a; --open:#ff8838; --open-bg:#3a2414; --done:#c4e86b; --done-bg:#253a10;
+  --info:#d6cfff; --info-bg:#2a2552; color-scheme:dark}}
 [hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--body)}
 .wrap{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:18px 48px;display:flex;flex-direction:column;gap:16px}
