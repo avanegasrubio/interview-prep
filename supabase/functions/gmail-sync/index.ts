@@ -22,12 +22,17 @@ const QUERY = [
 // before "thanks for applying" so an invite that also thanks them counts as an
 // interview, while a plain confirmation that mentions "next steps" stays "applied".
 const RULES: [string, RegExp][] = [
-  ["offer", /(offer letter|pleased to offer|extend(ing)? (you )?an offer|formal offer|job offer)/],
+  ["offer", /(offer letter|pleased to offer you|(happy|excited|delighted) to offer you|extend(ing)? (you )?an? (job |formal )?offer|formal offer|offer of employment|your offer)/],
   ["rejected", /(unfortunately|not (be )?moving forward|decided (not )?to (move|pursue|proceed)[^.]{0,40}other|other candidates|no longer (being )?considered|not been selected|not selected|position has been filled|will not be proceeding|won't be moving)/],
   ["interview", /(schedule (a|an|some|your) (time|call|chat|interview)|your availability|times that work|book a time|calendly|goodtime\.io|phone screen|invite you to (an? )?(interview|call|chat)|like to (set up|arrange|schedule)|meet with the team)/],
   ["applied", /(thank(s| you) for (applying|your application|your interest)|application (was |has been )?(received|submitted|sent)|we('ve| have) received your application|your application was sent|successfully applied|confirming your application)/],
   ["interview", /\binterview\b/],
 ];
+// Job boards, community sites and alert emails talk about jobs and offers but are not from an employer.
+// From these senders we only trust application confirmations and rejections, never offers, interviews or replies.
+const BOARD = /(glassdoor|indeed|ziprecruiter|monster\.com|simplyhired|careerbuilder|dice\.com|wellfound|angel\.co|builtin|handshake|joinhandshake|jobleads|talent\.com|jooble|adzuna|linkedin\.com|medium\.com|substack|quora|reddit|facebookmail|mailchimp)/i;
+// Digests, alerts and marketing: skipped outright unless the email is clearly an application confirmation.
+const ALERT = /(job alert|jobs? (for you|you may like|matching|near)|new jobs?|recommended (jobs|for you)|trending|top posts|community|newsletter|digest|just posted|now hiring|similar jobs|people also viewed|salary insights|career advice|accepted the job offer|unsubscribe)/i;
 const NOREPLY = /(no-?reply|donotreply|notifications?|jobs-noreply|talent@|careers@|recruiting@|hr@)/i;
 const RANK: Record<string, number> = { "To apply": 0, "Applied": 1, "Replied": 2, "Interview": 3, "Offer": 4 };
 
@@ -150,9 +155,15 @@ async function syncUser(admin: SupabaseClient, row: any, jobs: any[]) {
     const text = `${subject} ${snippet}`.toLowerCase();
     let kind = "other";
     for (const [k, re] of RULES) if (re.test(text)) { kind = k; break; }
+    const fromBoard = BOARD.test(sender);
+    // Alerts and digests never count, and a job board can only confirm an application or pass on a rejection.
+    if (ALERT.test(text) && kind !== "applied" && kind !== "rejected") continue;
+    if (fromBoard && kind !== "applied" && kind !== "rejected") continue;
     const hay = `${sender} ${subject} ${snippet}`.toLowerCase();
     const job = jobs.find((j) => hay.includes(j.company.toLowerCase()));
-    if (kind === "other" && job && !NOREPLY.test(sender)) kind = "reply";
+    if (kind === "other" && job && !NOREPLY.test(sender) && !fromBoard) kind = "reply";
+    // An offer is the highest-stakes label: only accept it for a known job, or from a sender that isn't a no-reply address.
+    if (kind === "offer" && !job && NOREPLY.test(sender)) continue;
     if (kind === "other") continue; // skip job alerts, newsletters and anything unclear
     const received = new Date(Number(m.internalDate));
     const day = received.toISOString().slice(0, 10);
