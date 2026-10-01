@@ -512,8 +512,9 @@ function renderJob(j,v){
   <label class="field" for="jNotes">Notes<textarea id="jNotes" placeholder="Recruiter name, interview date, what they asked...">${esc(s.notes||"")}</textarea></label></article>
   ${s.status!=="Interview"&&j.prep?prepHtml(j,false):""}
   ${EMAILS.filter(m=>m.job_id===j.id).length?`<h2>Emails about this job</h2>${EMAILS.filter(m=>m.job_id===j.id).map(m=>emailRow(m,false)).join("")}`:""}
-  <div class="card"><h3>People you know at ${esc(j.company)}</h3>${j.linkedin?`<div class="row"><a class="btn small" href="${esc(j.linkedin)}" target="_blank" rel="noopener">Company on LinkedIn</a><a class="btn small" href="${esc(j.linkedin.replace(/\/$/,""))}/people/?keywords=recruiter" target="_blank" rel="noopener">Find recruiters</a><a class="btn small" href="${esc(j.linkedin.replace(/\/$/,""))}/people/?keywords=support" target="_blank" rel="noopener">Find the support team</a></div>`:""}${ppl.length?ppl.map(p=>`<div class="spread"><span>${esc(p.first)} ${esc(p.last)} · <span class="muted">${esc(p.position||"")}</span></span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>`).join(""):`<p class="muted">No one yet. Import your LinkedIn connections on the People tab, or add someone you find.</p>`}</div>`;
+  <div class="card"><h3>People you know at ${esc(j.company)}</h3>${j.linkedin?`<div class="row"><a class="btn small" href="${esc(j.linkedin)}" target="_blank" rel="noopener">Company on LinkedIn</a><a class="btn small" href="${esc(j.linkedin.replace(/\/$/,""))}/people/?keywords=recruiter" target="_blank" rel="noopener">Find recruiters</a><a class="btn small" href="${esc(j.linkedin.replace(/\/$/,""))}/people/?keywords=support" target="_blank" rel="noopener">Find the support team</a></div>`:""}${ppl.length?ppl.map(p=>`<div class="qa"><div class="spread"><span><button class="btn small" data-job-person="${esc(p.id)}" style="text-align:left"><b>${esc(p.first)} ${esc(p.last)}</b></button> <span class="muted">${esc(p.position||"")}</span></span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>${p.url?`<div class="row"><a class="btn small" href="${esc(p.url)}" target="_blank" rel="noopener">LinkedIn profile</a></div>`:""}</div>`).join(""):`<p class="muted">No one yet. Import your LinkedIn connections on the People tab, or add someone you find.</p>`}</div>`;
   $("#backJobs").onclick=()=>{openJob=null;renderJobs()};bindBank(v,renderJobs);
+  v.querySelectorAll("[data-job-person]").forEach(b=>b.onclick=()=>{goTo("people");openPerson=b.dataset.jobPerson;renderPeople();window.scrollTo(0,0)});
   const dl=$("#dlResume");if(dl)dl.onclick=()=>downloadResume(j.resume,dl);
   v.querySelectorAll("[data-kit]").forEach(b=>b.onclick=()=>copy(j.kit[+b.dataset.kit].text));
   $("#jStatus").onchange=e=>setJobStatus(j,e.target.value);
@@ -658,7 +659,7 @@ function renderPractice(){const v=$("#practice");
 function weekCounts(){const ws=weekStart();const ev=D.events.filter(e=>e.at>=ws);const c=t=>ev.filter(e=>e.type===t).length;return{a:c("applied"),r:c("reply"),i:c("interview"),o:c("offer")}}
 /* ---------- FUNNEL (all-time, from job statuses and dates; each stage includes everything that got past it) ---------- */
 function funnelCounts(){
-  const ids=new Set(JOBS.map(j=>j.id));let sts=Object.entries(D.jobs).filter(([id])=>ids.has(id)).map(([,s])=>s);
+  const ids=new Set(JOBS.map(j=>j.id));let sts=Object.entries(D.jobs).filter(([id])=>ids.has(id)).map(([,s])=>s).filter(s=>s.status!=="To apply");
   const inS=(s,l)=>l.includes(s.status);
   const offer=sts.filter(s=>s.offerAt||inS(s,["Offer"])).length;
   const interview=sts.filter(s=>s.interviewAt||s.offerAt||inS(s,["Interview","Offer"])).length;
