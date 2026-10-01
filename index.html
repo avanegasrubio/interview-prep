@@ -822,7 +822,11 @@ $("#viewExit").onclick=stopViewAs;
 
 const views={today:renderToday,jobs:renderJobs,people:renderPeople,practice:renderPractice,week:renderWeek,admin:renderAdmin};
 let tab="today";
-function renderAll(){views[tab]()}
+function renderAll(){views[tab]();updateBadge()}
+/* Home-screen icon badge: how many things are left on Today's list (iOS 16.4+ home-screen app, Android Chrome). */
+function updateBadge(){if(!("setAppBadge" in navigator)||VIEWAS||!ME)return;
+  try{const n=todayItems(S.days.includes(today())).todo.length;(n?navigator.setAppBadge(n):navigator.clearAppBadge()).catch(()=>{})}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")updateBadge()});
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{if(VIEWAS&&b.dataset.tab==="admin"){stopViewAs();return}tab=b.dataset.tab;document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));
   Object.keys(views).forEach(k=>$("#"+k).hidden=k!==tab);if(tab==="jobs")openJob=null;if(tab==="people")openPerson=null;if(tab==="practice")current=null;renderAll();window.scrollTo(0,0)});
 boot();

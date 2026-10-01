@@ -56,7 +56,9 @@ async function summary(admin: SupabaseClient, userId: string, jobs: any[]) {
   if (fu.length) parts.push(`Follow up on ${company(fu[0].job_id)}${fu.length > 1 ? ` and ${fu.length - 1} more` : ""}`);
   parts.push("Practice one ticket out loud");
   const title = due.length || fu.length || thanks.length ? "Today's job search" : "15 minutes today";
-  return { title, body: parts.join(" · "), url: "/?tab=today", tag: "daily-" + today };
+  // Number for the home-screen icon badge: items due today plus the practice ticket
+  const count = thanks.length + due.length + fu.length + 1;
+  return { title, body: parts.join(" · "), url: "/?tab=today", tag: "daily-" + today, count };
 }
 
 Deno.serve(async (req) => {
