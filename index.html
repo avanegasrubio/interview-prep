@@ -118,6 +118,7 @@ details.prep summary{cursor:pointer;list-style:none;padding:2px 0}details.prep s
     <button role="tab" data-tab="practice" aria-selected="false">Practice</button>
     <button role="tab" data-tab="learn" aria-selected="false">Learn</button>
     <button role="tab" data-tab="week" aria-selected="false">Week</button>
+    <button role="tab" data-tab="content" aria-selected="false" hidden>Content</button>
     <button role="tab" data-tab="admin" aria-selected="false" hidden>Admin</button>
   </nav>
 
@@ -127,6 +128,7 @@ details.prep summary{cursor:pointer;list-style:none;padding:2px 0}details.prep s
   <section id="practice" hidden></section>
   <section id="learn" hidden></section>
   <section id="week" hidden></section>
+  <section id="content" hidden></section>
   <section id="admin" hidden></section>
 </div>
 <div class="toast" id="toast" hidden></div>
@@ -166,7 +168,7 @@ const KEY="edwin-reps-v1", KEY2="edwin-tracker-v1";
 function load(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 let S=load(KEY,{}); S.done=S.done||{}; S.days=S.days||[];
-let D=load(KEY2,{}); D.jobs=D.jobs||{}; D.people=D.people||[]; D.events=D.events||[]; D.custom=D.custom||[]; D.remind=D.remind||{time:"07:30",days:"work"};
+let D=load(KEY2,{}); D.jobs=D.jobs||{}; D.people=D.people||[]; D.events=D.events||[]; D.custom=D.custom||[]; D.remind=D.remind||{time:"07:30",days:"work"}; D.content=D.content||[];
 const saveD=()=>{if(!VIEWAS)save(KEY2,D)};
 const saveS=()=>{if(!VIEWAS){save(KEY,S);syncPractice()}};
 
@@ -189,6 +191,9 @@ const personFrom=r=>({id:r.id,user_id:r.user_id,first:r.first||"",last:r.last||"
 async function syncPerson(p){if(!sb||!ME||ro())return;const {error}=await sb.from("people").upsert(personRow(p));fail(error)}
 async function syncPeopleBulk(list){if(!sb||!ME||ro())return;for(let i=0;i<list.length;i+=400){const {error}=await sb.from("people").upsert(list.slice(i,i+400).map(personRow));if(error){fail(error);return}}}
 async function removePerson(id){if(!sb||!ME||ro())return;const {error}=await sb.from("people").delete().eq("id",id);fail(error)}
+const contentRow=c=>({id:c.id,user_id:c.user_id||ME.id,platform:c.platform||null,title:c.title,notes:c.notes||null,status:c.status,planned_date:c.plannedDate||null,posted_at:c.postedAt||null});
+async function syncContent(c){if(!sb||!ME||ro())return;const {error}=await sb.from("content_items").upsert(contentRow(c));fail(error)}
+async function removeContent(id){if(!sb||!ME||ro())return;const {error}=await sb.from("content_items").delete().eq("id",id);fail(error)}
 const jobFrom=r=>({id:r.id,company:r.company,role:r.role,match:r.match,pay:r.pay,where:r.location,url:r.url,resume:r.resume,why:r.why,watch:r.watch,added:r.added,custom:r.custom,active:r.active,kit:r.kit||[],linkedin:r.linkedin,prep:r.prep||null,review:r.review,foundNote:r.found_note,clientEmail:r.client_email});
 
 /* ---------- helpers ---------- */
@@ -227,12 +232,13 @@ function bindBank(v,rerender){
 async function loadAll(){
   if(!sb||!ME){JOBS=load("edwin-jobs-cache",[]);renderAll();return}
   loadAnswers();
-  const [j,st,pp,ev,pr]=await Promise.all([
+  const [j,st,pp,ev,pr,ci]=await Promise.all([
     sb.from("jobs").select("*").eq("active",true),
     sb.from("job_status").select("*").eq("user_id",uid()),
     sb.from("people").select("*").eq("user_id",uid()),
     sb.from("events").select("*").eq("user_id",uid()).order("at"),
-    sb.from("practice").select("*").eq("user_id",uid()).maybeSingle()]);
+    sb.from("practice").select("*").eq("user_id",uid()).maybeSingle(),
+    sb.from("content_items").select("*").eq("user_id",uid()).order("created_at",{ascending:false})]);
   loadEmail();
   if(j.error){toast("Couldn't load. Showing what's saved on this phone.");JOBS=load("edwin-jobs-cache",[]);renderAll();return}
   JOBS=j.data.map(jobFrom);save("edwin-jobs-cache",JOBS);
@@ -249,6 +255,7 @@ async function loadAll(){
   }
   D.jobs={};(st.data||[]).forEach(r=>D.jobs[r.job_id]={status:r.status,appliedAt:r.applied_at,replyAt:r.reply_at,interviewAt:r.interview_at,offerAt:r.offer_at,followedUp:r.followed_up,thankedAt:r.thanked_at,notes:r.notes});
   D.people=(pp.data||[]).map(personFrom);
+  D.content=(ci.data||[]).map(r=>({id:r.id,platform:r.platform||"",title:r.title,notes:r.notes||"",status:r.status,plannedDate:r.planned_date,postedAt:r.posted_at,createdAt:r.created_at}));
   D.events=(ev.data||[]).map(r=>({type:r.type,label:r.label,at:r.at}));
   if(pr.data){S.done=pr.data.done||{};S.days=pr.data.days||[];D.remind=pr.data.remind||D.remind}
   if(VIEWAS){$("#viewBar").hidden=false;$("#viewName").textContent=VIEWAS.name}else{save(KEY,S);saveD()}renderAll()}
@@ -265,6 +272,12 @@ function followUpsDue(){
   return out}
 
 function goTo(t){const b=document.querySelector(`.tabs [data-tab="${t}"]`);if(b)b.click()}
+/* Which tabs a member sees depends on what they're working on: job search (the original tabs) or content (just Content). Admin is handled separately. */
+function applyTrackNav(track){
+  const jobTabs=["today","jobs","people","practice","learn","week"];
+  document.querySelectorAll(".tabs button").forEach(b=>{if(b.dataset.tab==="admin")return;
+    b.hidden=track==="content"?b.dataset.tab!=="content":!jobTabs.includes(b.dataset.tab)});
+}
 async function downloadResume(name,btn){if(!sb||!ME)return;const orig=btn&&btn.textContent;if(btn){btn.disabled=true;btn.textContent="Getting it..."}
   const {data,error}=await sb.storage.from("resumes").download(name+".pdf");if(btn){btn.disabled=false;btn.textContent=orig}
   if(error||!data){toast("That resume isn't uploaded yet. Ask Ari.");return}
@@ -735,6 +748,40 @@ function bindLearn(v){v.querySelectorAll("[data-learn]").forEach(b=>b.onclick=()
   if(m[k])delete m[k];else m[k]=today();saveD();saveS();renderLearn();toast(m[k]?"Marked done":"Unchecked")})}
 function renderLearn(){const v=$("#learn");v.innerHTML=learnHtml();bindLearn(v)}
 
+/* ---------- CONTENT: for a client whose track is "content" (not job search). Ideas move idea -> drafted -> scheduled -> posted.
+   Stored in the content_items table, one row per idea/post. A weekly posting goal lives in practice.remind.contentGoal. ---------- */
+const CONTENT_PLATFORMS=["LinkedIn","Instagram","Newsletter","Other"];
+const CONTENT_STEPS=["idea","drafted","scheduled","posted"];
+const CONTENT_LABEL={idea:"Idea",drafted:"Drafted",scheduled:"Scheduled",posted:"Posted"};
+function contentGoal(){return(D.remind&&D.remind.contentGoal)||3}
+function postedThisWeek(){const ws=weekStart();return D.content.filter(c=>c.status==="posted"&&c.postedAt&&c.postedAt>=ws).length}
+function contentRowHtml(c){const next=CONTENT_STEPS[CONTENT_STEPS.indexOf(c.status)+1];
+  return `<div class="qa"><div class="spread"><span><b>${esc(c.title)}</b>${c.platform?` · <span class="muted">${esc(c.platform)}</span>`:""}</span><span class="pill ${c.status==="posted"?"done":"info"}">${CONTENT_LABEL[c.status]}</span></div>
+  ${c.notes?`<p class="muted">${esc(c.notes)}</p>`:""}${c.plannedDate&&c.status!=="posted"?`<p class="muted">Planned for ${nice(c.plannedDate)}</p>`:""}${c.postedAt?`<p class="muted">Posted ${nice(c.postedAt)}</p>`:""}
+  <div class="row">${next?`<button class="btn small primary" data-c-next="${esc(c.id)}">Mark ${CONTENT_LABEL[next].toLowerCase()}</button>`:""}<button class="btn small" data-c-del="${esc(c.id)}">Remove</button></div></div>`}
+function renderContent(){const v=$("#content");const goal=contentGoal(),done=postedThisWeek();
+  v.innerHTML=`<div class="card"><div class="spread"><h3>This week</h3><span class="pill ${done>=goal?"done":"info"}">${done} of ${goal} posted</span></div>
+    <div class="track" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;height:12px;overflow:hidden"><div style="height:100%;width:${Math.min(100,Math.round(done/goal*100))}%;background:var(--accent)"></div></div>
+    <label class="field" for="cGoal">Weekly posting goal<input id="cGoal" inputmode="numeric" value="${goal}" style="max-width:80px"></label></div>
+  <div class="card"><h3>Add an idea</h3>
+    <label class="field" for="ciTitle">Title or topic<input id="ciTitle"></label>
+    <div class="row"><label class="field" for="ciPlat">Platform<select id="ciPlat">${CONTENT_PLATFORMS.map(p=>`<option>${p}</option>`).join("")}</select></label><label class="field" for="ciDate">Planned date (optional)<input id="ciDate" type="date"></label></div>
+    <label class="field" for="ciNotes">Notes (optional)<textarea id="ciNotes"></textarea></label>
+    <button class="btn primary" id="ciAdd">Add idea</button></div>
+  ${CONTENT_STEPS.map(s=>{const items=D.content.filter(c=>c.status===s);if(!items.length)return"";
+    return `<h2>${CONTENT_LABEL[s]} <span class="muted">· ${items.length}</span></h2>${items.map(contentRowHtml).join("")}`}).join("")||""}
+  ${D.content.length?"":`<p class="muted">Nothing yet. Add your first idea above.</p>`}`;
+  const gs=$("#cGoal");if(gs)gs.onchange=()=>{if(ro())return;const n=Math.max(1,parseInt(gs.value)||3);D.remind=D.remind||{};D.remind.contentGoal=n;saveD();saveS();toast("Goal saved")};
+  $("#ciAdd").onclick=()=>{if(ro())return;const title=$("#ciTitle").value.trim();if(!title){toast("Add a title");return}
+    const c={id:"c"+Date.now().toString(36),title,platform:$("#ciPlat").value,notes:$("#ciNotes").value.trim(),status:"idea",plannedDate:$("#ciDate").value||null,postedAt:null};
+    D.content.unshift(c);saveD();syncContent(c);renderContent();toast("Added")};
+  v.querySelectorAll("[data-c-next]").forEach(b=>b.onclick=()=>{if(ro())return;const c=D.content.find(x=>x.id===b.dataset.cNext);if(!c)return;
+    const next=CONTENT_STEPS[CONTENT_STEPS.indexOf(c.status)+1];c.status=next;if(next==="posted")c.postedAt=today();
+    saveD();syncContent(c);renderContent();toast(next==="posted"?"Nice, logged as posted":"Moved to "+CONTENT_LABEL[next].toLowerCase())});
+  v.querySelectorAll("[data-c-del]").forEach(b=>b.onclick=()=>{if(ro())return;if(!b.dataset.armed){b.dataset.armed=1;b.textContent="Tap again to remove";return}
+    D.content=D.content.filter(x=>x.id!==b.dataset.cDel);saveD();removeContent(b.dataset.cDel);renderContent();toast("Removed")});
+}
+
 /* ---------- PRACTICE ---------- */
 let current=null;
 function renderPractice(){const v=$("#practice");
@@ -799,10 +846,10 @@ function downloadIcs(){
 /* ---------- tabs ---------- */
 /* ---------- ADMIN ---------- */
 async function startViewAs(m){VIEWAS={user_id:m.user_id,name:m.display_name||m.email,gmail:{connected:!!m.gmail_connected,gmail_address:m.gmail_address,last_sync_at:m.gmail_last_sync},savedS:S,savedD:D,savedMY:MY};
-  S={done:{},days:[]};D={jobs:{},people:[],events:[],custom:[],remind:{time:"07:30",days:"work"}};
-  MY={background:m.background,bio:m.bio,target_role:m.target_role,signature:m.signature,curriculum:m.curriculum};
-  openPerson=null;openJob=null;goTo("today");await loadAll();window.scrollTo(0,0)}
-function stopViewAs(){if(!VIEWAS)return;S=VIEWAS.savedS;D=VIEWAS.savedD;MY=VIEWAS.savedMY;VIEWAS=null;$("#viewBar").hidden=true;openPerson=null;openJob=null;goTo("admin");loadAll();window.scrollTo(0,0)}
+  S={done:{},days:[]};D={jobs:{},people:[],events:[],custom:[],remind:{time:"07:30",days:"work"},content:[]};
+  MY={background:m.background,bio:m.bio,target_role:m.target_role,signature:m.signature,curriculum:m.curriculum,track:m.track||"jobs"};
+  openPerson=null;openJob=null;applyTrackNav(MY.track);goTo(MY.track==="content"?"content":"today");await loadAll();window.scrollTo(0,0)}
+function stopViewAs(){if(!VIEWAS)return;S=VIEWAS.savedS;D=VIEWAS.savedD;MY=VIEWAS.savedMY;VIEWAS=null;$("#viewBar").hidden=true;openPerson=null;openJob=null;applyTrackNav(MY&&MY.track||"jobs");goTo("admin");loadAll();window.scrollTo(0,0)}
 /* Admin review list: every contact grouped by company, with LinkedIn link, email and a two-tap Remove (for people who changed jobs or don't fit). */
 function peopleReview(ppl){if(!ppl.length)return `<p class="muted">No contacts yet.</p>`;
   const by={};ppl.forEach(p=>(by[p.company||"No company"]=by[p.company||"No company"]||[]).push(p));
@@ -819,15 +866,29 @@ async function renderAdmin(){
   const members=(acc.data||[]).filter(m=>m.role!=="admin");
   if(!adminMember&&members.length)adminMember=members[0].email;
   const m=members.find(x=>x.email===adminMember);
+  const trackOf=m?(m.track||"jobs"):"jobs";
   let body="",logSt=[],logPpl=[];
-  const profileCard=!m?"":`<div class="card"><h3>${esc(m.display_name||m.email)}'s background</h3><p class="muted">Used in his connection notes, emails and follow-ups, and picks his study curriculum on Learn.</p>
+  const profileCard=(!m||trackOf!=="jobs")?"":`<div class="card"><h3>${esc(m.display_name||m.email)}'s background</h3><p class="muted">Used in his connection notes, emails and follow-ups, and picks his study curriculum on Learn.</p>
     <label class="field" for="pBg">One-line background (connection notes, 200-char limit)<input id="pBg" value="${esc(m.background||"")}" placeholder="e.g. I support APIs on Google Cloud at Acme"></label>
     <label class="field" for="pBio">Longer background (emails)<textarea id="pBio">${esc(m.bio||"")}</textarea></label>
     <div class="row"><label class="field" for="pRole">Target role<input id="pRole" value="${esc(m.target_role||"")}" placeholder="e.g. support engineering"></label><label class="field" for="pSig">Signs messages as<input id="pSig" value="${esc(m.signature||"")}" placeholder="e.g. Edwin"></label></div>
     <button class="btn primary" id="pSave">Save background</button></div>`;
-  const viewCard=(!m||!m.user_id)?"":`<div class="card"><div class="spread"><div><h3>See ${esc(m.display_name||"his")} view</h3><p class="muted">Today, Jobs, People, Practice and Week exactly as he sees them. Read-only.</p></div><button class="btn primary" id="viewAs">Open his view</button></div></div>`;
+  const viewCard=(!m||!m.user_id)?"":`<div class="card"><div class="spread"><div><h3>See ${esc(m.display_name||"his")} view</h3><p class="muted">${trackOf==="content"?"Today and Content exactly as they see them.":"Today, Jobs, People, Practice and Week exactly as he sees them."} Read-only.</p></div><button class="btn primary" id="viewAs">Open his view</button></div></div>`;
   if(!m){body=`<div class="card"><h3>No clients yet</h3><p class="muted">Add one below.</p></div>`}
   else if(!m.user_id){body=`<div class="card"><h3>Waiting for ${esc(m.display_name||m.email)}</h3><p class="muted">He shows up here once he creates his account with ${esc(m.email)} on the sign-in screen.</p></div>`}
+  else if(trackOf==="content"){
+    const ws=weekStart();
+    const {data:items0}=await sb.from("content_items").select("*").eq("user_id",m.user_id);
+    const items=items0||[];const byStatus=k=>items.filter(x=>x.status===k).length;
+    const postedWeek=items.filter(x=>x.status==="posted"&&x.posted_at&&x.posted_at>=ws).length;
+    body=`<div class="card"><h3>${esc(m.display_name||m.email)}</h3>
+      <div class="score"><div><b>${byStatus("idea")}</b><span>Ideas</span></div><div><b>${byStatus("drafted")}</b><span>Drafted</span></div><div><b>${byStatus("scheduled")}</b><span>Scheduled</span></div><div><b>${byStatus("posted")}</b><span>Posted</span></div></div>
+      <p class="muted">${postedWeek} posted this week · ${items.length} items total</p></div>
+    <div class="card"><h3>Add a content idea for ${esc(m.display_name||m.email)}</h3>
+      <label class="field" for="kTitle">Title or topic<input id="kTitle"></label>
+      <div class="row"><label class="field" for="kPlat">Platform<select id="kPlat">${CONTENT_PLATFORMS.map(p=>`<option>${p}</option>`).join("")}</select></label><label class="field" for="kDate">Planned date (optional)<input id="kDate" type="date"></label></div>
+      <label class="field" for="kNotes">Notes (optional)<textarea id="kNotes"></textarea></label>
+      <button class="btn primary" id="kAdd">Add idea</button></div>`}
   else{
     const ws=weekStart();
     const [st,ev,pp,pr,em]=await Promise.all([
@@ -859,14 +920,14 @@ async function renderAdmin(){
       <label class="field" for="xUrl">LinkedIn profile link<input id="xUrl" inputmode="url"></label><label class="field" for="xEmail">Work email (optional)<input id="xEmail" type="email" inputmode="email"></label><button class="btn primary" id="xAdd">Add to his People list</button></div>`}
   v.innerHTML=`${members.length>1?`<label class="field" for="mSel">Viewing<select id="mSel">${members.map(x=>`<option value="${esc(x.email)}"${x.email===adminMember?" selected":""}>${esc(x.display_name||x.email)}</option>`).join("")}</select></label>`:""}
   ${viewCard}
-  ${m?`<div class="card"><div class="spread"><h3>To vet</h3><span class="tid">Adding for ${esc(m.display_name||m.email)}</span></div><div id="vetList"><p class="muted">Loading...</p></div></div>`:""}
+  ${m&&trackOf==="jobs"?`<div class="card"><div class="spread"><h3>To vet</h3><span class="tid">Adding for ${esc(m.display_name||m.email)}</span></div><div id="vetList"><p class="muted">Loading...</p></div></div>`:""}
   ${body}
   ${profileCard}
-  <div class="card"><h3>Add a client</h3><p class="muted">They sign up with this email and get their own jobs, contacts and background.</p>
+  <div class="card"><h3>Add a client</h3><p class="muted">They sign up with this email and get their own jobs, contacts and background &mdash; or, for a content client, their own content tracker.</p>
     <div class="row"><label class="field" for="cEmail">Email<input id="cEmail" type="email" inputmode="email"></label><label class="field" for="cName">Display name<input id="cName"></label></div>
-    <label class="field" for="cRole">Target role<input id="cRole" placeholder="e.g. support engineering"></label>
+    <div class="row"><label class="field" for="cTrack">What they use the app for<select id="cTrack"><option value="jobs">Job search</option><option value="content">Content creation</option></select></label><label class="field" for="cRole">Target role (job search only)<input id="cRole" placeholder="e.g. support engineering"></label></div>
     <button class="btn primary" id="cAdd">Add client</button></div>
-  <div class="card"><h3>Resumes</h3><p class="muted">Upload PDFs named after the job's resume file name. Shared across clients; only you and they can open them.</p>
+  ${trackOf==="jobs"?`<div class="card"><h3>Resumes</h3><p class="muted">Upload PDFs named after the job's resume file name. Shared across clients; only you and they can open them.</p>
     <div class="row"><label class="btn" for="rUp" style="cursor:pointer">Upload resume PDFs</label><input type="file" id="rUp" accept="application/pdf" multiple hidden></div>
     <div id="rList"><p class="muted">Loading...</p></div></div>
   <div class="card"><h3>Add a vetted job</h3><p class="muted">${m?`Appears on ${esc(m.display_name||m.email)}'s Jobs tab right away.`:"Pick a client above first."}</p>
@@ -876,14 +937,17 @@ async function renderAdmin(){
     <label class="field" for="vLi">Company LinkedIn page<input id="vLi" inputmode="url"></label>
     <label class="field" for="vResume">Resume file name<input id="vResume"></label>
     <label class="field" for="vWhy">Why it fits<textarea id="vWhy"></textarea></label><label class="field" for="vWatch">Watch out for<textarea id="vWatch"></textarea></label>
-    <button class="btn primary" id="vAdd">Add job</button></div>`;
+    <button class="btn primary" id="vAdd">Add job</button></div>`:""}`;
   const va=$("#viewAs");if(va)va.onclick=()=>startViewAs(m);
   const sel=$("#mSel");if(sel)sel.onchange=e=>{adminMember=e.target.value;renderAdmin()};
   const psv=$("#pSave");if(psv)psv.onclick=async()=>{const upd={background:$("#pBg").value.trim()||null,bio:$("#pBio").value.trim()||null,target_role:$("#pRole").value.trim()||null,signature:$("#pSig").value.trim()||null};
     const {error}=await sb.from("members").update(upd).eq("email",m.email);if(error){fail(error);return}toast("Saved");renderAdmin()};
   const ca=$("#cAdd");if(ca)ca.onclick=async()=>{const email=$("#cEmail").value.trim().toLowerCase();if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast("Enter a valid email");return}
-    const row={email,role:"member",display_name:$("#cName").value.trim()||null,target_role:$("#cRole").value.trim()||null};
+    const row={email,role:"member",display_name:$("#cName").value.trim()||null,target_role:$("#cRole").value.trim()||null,track:$("#cTrack").value};
     const {error}=await sb.from("members").insert(row);if(error){fail(error);return}adminMember=email;toast("Client added");renderAdmin()};
+  const ka=$("#kAdd");if(ka)ka.onclick=async()=>{const title=$("#kTitle").value.trim();if(!title){toast("Add a title");return}
+    const row={id:"c"+Date.now().toString(36),user_id:m.user_id,platform:$("#kPlat").value||null,title,notes:$("#kNotes").value.trim()||null,status:"idea",planned_date:$("#kDate").value||null};
+    const {error}=await sb.from("content_items").insert(row);if(error){fail(error);return}toast("Idea added");renderAdmin()};
   const listResumes=async()=>{const {data}=await sb.storage.from("resumes").list("",{limit:100,sortBy:{column:"name",order:"asc"}});
     const files=(data||[]).filter(f=>f.name.endsWith(".pdf"));
     /* Link uploads to jobs on their own: a job with no resume set (or whose file is gone) takes the one PDF whose name contains its company. */
@@ -926,7 +990,7 @@ async function renderAdmin(){
     const byDay={};ev.forEach(e=>(byDay[e.day]=byDay[e.day]||[]).push(e));
     box.innerHTML=Object.keys(byDay).map(d=>`<p><b>${d===today()?"Today":nice(d)}</b></p>`+byDay[d].map(e=>`<div class="spread"><span>${e.text}</span><span class="pill ${e.cls}">${esc(e.kind)}</span></div>`).join("")).join("")};
   listLog();
-  $("#rUp").onchange=async e=>{const fs=[...e.target.files];let n=0;for(const f of fs){const nm=f.name.replace(/\s*\(\d+\)(?=\.pdf$)/i,"");/* drop the " (4)" a browser adds to repeat downloads */const {error}=await sb.storage.from("resumes").upload(nm,f,{upsert:true,contentType:"application/pdf"});if(error)fail(error);else n++}
+  const rup=$("#rUp");if(rup)rup.onchange=async e=>{const fs=[...e.target.files];let n=0;for(const f of fs){const nm=f.name.replace(/\s*\(\d+\)(?=\.pdf$)/i,"");/* drop the " (4)" a browser adds to repeat downloads */const {error}=await sb.storage.from("resumes").upload(nm,f,{upsert:true,contentType:"application/pdf"});if(error)fail(error);else n++}
     toast(n+" uploaded");listResumes()};
   v.querySelectorAll("[data-archive]").forEach(b=>b.onclick=async()=>{if(!b.dataset.armed){b.dataset.armed=1;b.textContent="Tap to confirm";return}
     const {error}=await sb.from("jobs").update({active:false}).eq("id",b.dataset.archive);if(error){fail(error);return}JOBS=JOBS.filter(j=>j.id!==b.dataset.archive);toast("Archived");renderAdmin()});
@@ -937,7 +1001,7 @@ async function renderAdmin(){
     const {error}=await sb.from("people").update({email:x||null}).eq("id",peId);if(error){fail(error);return}toast(x?"Email saved":"Email removed");renderAdmin()};
   const xa=$("#xAdd");if(xa)xa.onclick=async()=>{const p={id:"a"+Date.now().toString(36),user_id:m.user_id,first:$("#xFirst").value.trim(),last:$("#xLast").value.trim(),company:$("#xCo").value.trim(),position:$("#xPos").value.trim(),url:$("#xUrl").value.trim(),email:$("#xEmail").value.trim()||null,status:"To message",source:"Assigned"};
     if(!p.first){toast("Add at least a first name");return}const {error}=await sb.from("people").insert(p);if(error){fail(error);return}toast("Added to his list");renderAdmin()};
-  $("#vAdd").onclick=async()=>{if(!m){toast("Add a client first");return}const co=$("#vCo").value.trim(),ro=$("#vRole").value.trim();if(!co||!ro){toast("Add a company and a role");return}
+  const vab=$("#vAdd");if(vab)vab.onclick=async()=>{if(!m){toast("Add a client first");return}const co=$("#vCo").value.trim(),ro=$("#vRole").value.trim();if(!co||!ro){toast("Add a company and a role");return}
     const row={id:(co+"-"+ro).toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,40)+"-"+Date.now().toString(36).slice(-4),company:co,role:ro,match:parseInt($("#vMatch").value)||null,pay:$("#vPay").value.trim()||null,location:$("#vWhere").value.trim()||null,url:$("#vUrl").value.trim()||null,resume:$("#vResume").value.trim()||null,why:$("#vWhy").value.trim()||null,watch:$("#vWatch").value.trim()||null,linkedin:$("#vLi").value.trim()||null,client_email:m.email};
     const {error}=await sb.from("jobs").insert(row);if(error){fail(error);return}JOBS.push(jobFrom({...row,added:today()}));toast("Job added");renderAdmin()};
 }
@@ -967,12 +1031,13 @@ function renderAuth(mode,msg){
     else{const {error}=await sb.auth.signInWithPassword({email,password});$("#go").disabled=false;if(error){toast(error.message==="Invalid login credentials"?"Wrong email or password":error.message);return}}};
 }
 async function enter(user){
-  ME=user;const res=await sb.from("members").select("email,role,display_name,background,bio,target_role,signature,curriculum");const error=res.error;
+  ME=user;const res=await sb.from("members").select("email,role,display_name,background,bio,target_role,signature,curriculum,track");const error=res.error;
   const data=(res.data||[]).find(r=>r.email.toLowerCase()===(user.email||"").toLowerCase());
   if(error){toast("Couldn't check your account. Try again.");return}
   if(!data){renderAuth("notmember");return}
-  ROLE=data.role;MY=data;$("#who").textContent="Signed in as "+user.email;$("#who").hidden=false;
+  ROLE=data.role;MY=data;applyTrackNav(MY.track||"jobs");$("#who").textContent="Signed in as "+user.email;$("#who").hidden=false;
   document.querySelector('[data-tab="admin"]').hidden=ROLE!=="admin";
+  if(MY.track==="content"&&tab==="today")tab="content";
   showApp(true);$("#signOut").hidden=false;await loadAll();
   if(gParam==="connected"){toast("Gmail connected. Checking your inbox...");checkEmail(null)}
   else if(gParam==="cancelled")toast("Gmail wasn't connected");
@@ -992,7 +1057,7 @@ if(sb)sb.auth.onAuthStateChange((ev,session)=>{
 $("#signOut").onclick=()=>{if(VIEWAS){S=VIEWAS.savedS;D=VIEWAS.savedD;VIEWAS=null;$("#viewBar").hidden=true}sb&&sb.auth.signOut()};
 $("#viewExit").onclick=stopViewAs;
 
-const views={today:renderToday,jobs:renderJobs,people:renderPeople,practice:renderPractice,learn:renderLearn,week:renderWeek,admin:renderAdmin};
+const views={today:renderToday,jobs:renderJobs,people:renderPeople,practice:renderPractice,learn:renderLearn,week:renderWeek,content:renderContent,admin:renderAdmin};
 let tab="today";
 function renderAll(){views[tab]();updateBadge()}
 /* Home-screen icon badge: how many things are left on Today's list (iOS 16.4+ home-screen app, Android Chrome). */
