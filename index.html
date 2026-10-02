@@ -753,6 +753,11 @@ function renderLearn(){const v=$("#learn");v.innerHTML=learnHtml();bindLearn(v)}
 const CONTENT_PLATFORMS=["LinkedIn","Instagram","Newsletter","Other"];
 const CONTENT_STEPS=["idea","drafted","scheduled","posted"];
 const CONTENT_LABEL={idea:"Idea",drafted:"Drafted",scheduled:"Scheduled",posted:"Posted"};
+function brandHtml(m){const colors=(m.brand_colors||"").split(",").map(s=>s.trim()).filter(Boolean);
+  if(!colors.length&&!m.linkedin_banner_url)return"";
+  return `<div class="card"><h3>Brand</h3>
+    ${colors.length?`<div class="row" style="flex-wrap:wrap">${colors.map(h=>`<span title="${esc(h)}" style="display:inline-block;width:28px;height:28px;border-radius:8px;background:${esc(h)};border:1px solid var(--line)"></span>`).join("")}</div>`:""}
+    ${m.linkedin_banner_url?`<p class="muted" style="margin-top:8px"><a href="${esc(m.linkedin_banner_url)}" target="_blank" rel="noopener">Open LinkedIn banner &amp; brand kit &rarr;</a></p>`:""}</div>`}
 function contentGoal(){return(D.remind&&D.remind.contentGoal)||3}
 function postedThisWeek(){const ws=weekStart();return D.content.filter(c=>c.status==="posted"&&c.postedAt&&c.postedAt>=ws).length}
 function contentRowHtml(c){const next=CONTENT_STEPS[CONTENT_STEPS.indexOf(c.status)+1];
@@ -760,7 +765,7 @@ function contentRowHtml(c){const next=CONTENT_STEPS[CONTENT_STEPS.indexOf(c.stat
   ${c.notes?`<p class="muted">${esc(c.notes)}</p>`:""}${c.plannedDate&&c.status!=="posted"?`<p class="muted">Planned for ${nice(c.plannedDate)}</p>`:""}${c.postedAt?`<p class="muted">Posted ${nice(c.postedAt)}</p>`:""}
   <div class="row">${next?`<button class="btn small primary" data-c-next="${esc(c.id)}">Mark ${CONTENT_LABEL[next].toLowerCase()}</button>`:""}<button class="btn small" data-c-del="${esc(c.id)}">Remove</button></div></div>`}
 function renderContent(){const v=$("#content");const goal=contentGoal(),done=postedThisWeek();
-  v.innerHTML=`<div class="card"><div class="spread"><h3>This week</h3><span class="pill ${done>=goal?"done":"info"}">${done} of ${goal} posted</span></div>
+  v.innerHTML=`${brandHtml(MY||{})}<div class="card"><div class="spread"><h3>This week</h3><span class="pill ${done>=goal?"done":"info"}">${done} of ${goal} posted</span></div>
     <div class="track" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;height:12px;overflow:hidden"><div style="height:100%;width:${Math.min(100,Math.round(done/goal*100))}%;background:var(--accent)"></div></div>
     <label class="field" for="cGoal">Weekly posting goal<input id="cGoal" inputmode="numeric" value="${goal}" style="max-width:80px"></label></div>
   <div class="card"><h3>Add an idea</h3>
@@ -847,7 +852,7 @@ function downloadIcs(){
 /* ---------- ADMIN ---------- */
 async function startViewAs(m){VIEWAS={user_id:m.user_id,name:m.display_name||m.email,gmail:{connected:!!m.gmail_connected,gmail_address:m.gmail_address,last_sync_at:m.gmail_last_sync},savedS:S,savedD:D,savedMY:MY};
   S={done:{},days:[]};D={jobs:{},people:[],events:[],custom:[],remind:{time:"07:30",days:"work"},content:[]};
-  MY={background:m.background,bio:m.bio,target_role:m.target_role,signature:m.signature,curriculum:m.curriculum,track:m.track||"jobs"};
+  MY={background:m.background,bio:m.bio,target_role:m.target_role,signature:m.signature,curriculum:m.curriculum,track:m.track||"jobs",brand_colors:m.brand_colors,linkedin_banner_url:m.linkedin_banner_url};
   openPerson=null;openJob=null;applyTrackNav(MY.track);goTo(MY.track==="content"?"content":"today");await loadAll();window.scrollTo(0,0)}
 function stopViewAs(){if(!VIEWAS)return;S=VIEWAS.savedS;D=VIEWAS.savedD;MY=VIEWAS.savedMY;VIEWAS=null;$("#viewBar").hidden=true;openPerson=null;openJob=null;applyTrackNav(MY&&MY.track||"jobs");goTo("admin");loadAll();window.scrollTo(0,0)}
 /* Admin review list: every contact grouped by company, with LinkedIn link, email and a two-tap Remove (for people who changed jobs or don't fit). */
@@ -873,6 +878,11 @@ async function renderAdmin(){
     <label class="field" for="pBio">Longer background (emails)<textarea id="pBio">${esc(m.bio||"")}</textarea></label>
     <div class="row"><label class="field" for="pRole">Target role<input id="pRole" value="${esc(m.target_role||"")}" placeholder="e.g. support engineering"></label><label class="field" for="pSig">Signs messages as<input id="pSig" value="${esc(m.signature||"")}" placeholder="e.g. Edwin"></label></div>
     <button class="btn primary" id="pSave">Save background</button></div>`;
+  const brandCard=(!m||trackOf!=="content")?"":`<div class="card"><h3>${esc(m.display_name||m.email)}'s brand</h3><p class="muted">Shows on her Content tab and stays here as a quick reference when you're planning posts with her.</p>
+    <label class="field" for="bColors">Color palette (hex codes, comma separated)<input id="bColors" value="${esc(m.brand_colors||"")}" placeholder="#FBEEF1, #F7DDE3, #9A4B60"></label>
+    <label class="field" for="bBanner">LinkedIn banner / brand kit link<input id="bBanner" value="${esc(m.linkedin_banner_url||"")}" inputmode="url" placeholder="Link to her design system or banner"></label>
+    ${brandHtml(m)}
+    <button class="btn primary" id="bSave">Save brand</button></div>`;
   const viewCard=(!m||!m.user_id)?"":`<div class="card"><div class="spread"><div><h3>See ${esc(m.display_name||"his")} view</h3><p class="muted">${trackOf==="content"?"Today and Content exactly as they see them.":"Today, Jobs, People, Practice and Week exactly as he sees them."} Read-only.</p></div><button class="btn primary" id="viewAs">Open his view</button></div></div>`;
   if(!m){body=`<div class="card"><h3>No clients yet</h3><p class="muted">Add one below.</p></div>`}
   else if(!m.user_id){body=`<div class="card"><h3>Waiting for ${esc(m.display_name||m.email)}</h3><p class="muted">He shows up here once he creates his account with ${esc(m.email)} on the sign-in screen.</p></div>`}
@@ -923,6 +933,7 @@ async function renderAdmin(){
   ${m&&trackOf==="jobs"?`<div class="card"><div class="spread"><h3>To vet</h3><span class="tid">Adding for ${esc(m.display_name||m.email)}</span></div><div id="vetList"><p class="muted">Loading...</p></div></div>`:""}
   ${body}
   ${profileCard}
+  ${brandCard}
   <div class="card"><h3>Add a client</h3><p class="muted">They sign up with this email and get their own jobs, contacts and background &mdash; or, for a content client, their own content tracker.</p>
     <div class="row"><label class="field" for="cEmail">Email<input id="cEmail" type="email" inputmode="email"></label><label class="field" for="cName">Display name<input id="cName"></label></div>
     <div class="row"><label class="field" for="cTrack">What they use the app for<select id="cTrack"><option value="jobs">Job search</option><option value="content">Content creation</option></select></label><label class="field" for="cRole">Target role (job search only)<input id="cRole" placeholder="e.g. support engineering"></label></div>
@@ -941,6 +952,8 @@ async function renderAdmin(){
   const va=$("#viewAs");if(va)va.onclick=()=>startViewAs(m);
   const sel=$("#mSel");if(sel)sel.onchange=e=>{adminMember=e.target.value;renderAdmin()};
   const psv=$("#pSave");if(psv)psv.onclick=async()=>{const upd={background:$("#pBg").value.trim()||null,bio:$("#pBio").value.trim()||null,target_role:$("#pRole").value.trim()||null,signature:$("#pSig").value.trim()||null};
+    const {error}=await sb.from("members").update(upd).eq("email",m.email);if(error){fail(error);return}toast("Saved");renderAdmin()};
+  const bsv=$("#bSave");if(bsv)bsv.onclick=async()=>{const upd={brand_colors:$("#bColors").value.trim()||null,linkedin_banner_url:$("#bBanner").value.trim()||null};
     const {error}=await sb.from("members").update(upd).eq("email",m.email);if(error){fail(error);return}toast("Saved");renderAdmin()};
   const ca=$("#cAdd");if(ca)ca.onclick=async()=>{const email=$("#cEmail").value.trim().toLowerCase();if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast("Enter a valid email");return}
     const row={email,role:"member",display_name:$("#cName").value.trim()||null,target_role:$("#cRole").value.trim()||null,track:$("#cTrack").value};
@@ -1031,7 +1044,7 @@ function renderAuth(mode,msg){
     else{const {error}=await sb.auth.signInWithPassword({email,password});$("#go").disabled=false;if(error){toast(error.message==="Invalid login credentials"?"Wrong email or password":error.message);return}}};
 }
 async function enter(user){
-  ME=user;const res=await sb.from("members").select("email,role,display_name,background,bio,target_role,signature,curriculum,track");const error=res.error;
+  ME=user;const res=await sb.from("members").select("email,role,display_name,background,bio,target_role,signature,curriculum,track,brand_colors,linkedin_banner_url");const error=res.error;
   const data=(res.data||[]).find(r=>r.email.toLowerCase()===(user.email||"").toLowerCase());
   if(error){toast("Couldn't check your account. Try again.");return}
   if(!data){renderAuth("notmember");return}
