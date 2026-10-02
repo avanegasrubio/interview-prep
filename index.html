@@ -8,7 +8,9 @@
 <meta name="apple-mobile-web-app-title" content="Interview Prep">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" href="/icon-192.png">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Edwin's Interview Prep</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -114,6 +116,7 @@ details.prep summary{cursor:pointer;list-style:none;padding:2px 0}details.prep s
     <button role="tab" data-tab="jobs" aria-selected="false">Jobs</button>
     <button role="tab" data-tab="people" aria-selected="false">People</button>
     <button role="tab" data-tab="practice" aria-selected="false">Practice</button>
+    <button role="tab" data-tab="learn" aria-selected="false">Learn</button>
     <button role="tab" data-tab="week" aria-selected="false">Week</button>
     <button role="tab" data-tab="admin" aria-selected="false" hidden>Admin</button>
   </nav>
@@ -122,6 +125,7 @@ details.prep summary{cursor:pointer;list-style:none;padding:2px 0}details.prep s
   <section id="jobs" hidden></section>
   <section id="people" hidden></section>
   <section id="practice" hidden></section>
+  <section id="learn" hidden></section>
   <section id="week" hidden></section>
   <section id="admin" hidden></section>
 </div>
@@ -170,7 +174,7 @@ const saveS=()=>{if(!VIEWAS){save(KEY,S);syncPractice()}};
 const SB_URL="https://hmglutaxerbpfxzwnnbn.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtZ2x1dGF4ZXJicGZ4endubmJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3OTkwNDQsImV4cCI6MjEwNjM3NTA0NH0.Vj2RA-30UnVXIOzG-V-hAGp1M5yhPF--_VZvQlzvVWs";
 const sb=window.supabase?window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}}):null;
-let ME=null, ROLE=null;
+let ME=null, ROLE=null, MY=null;
 /* Admin "see his view": loads a member's data into the normal tabs, read-only. Nothing is written while it's on. */
 let VIEWAS=null;const uid=()=>VIEWAS?VIEWAS.user_id:ME.id;
 function ro(){if(VIEWAS){toast("Preview only. Changes aren't saved.");return true}return false}
@@ -185,7 +189,7 @@ const personFrom=r=>({id:r.id,user_id:r.user_id,first:r.first||"",last:r.last||"
 async function syncPerson(p){if(!sb||!ME||ro())return;const {error}=await sb.from("people").upsert(personRow(p));fail(error)}
 async function syncPeopleBulk(list){if(!sb||!ME||ro())return;for(let i=0;i<list.length;i+=400){const {error}=await sb.from("people").upsert(list.slice(i,i+400).map(personRow));if(error){fail(error);return}}}
 async function removePerson(id){if(!sb||!ME||ro())return;const {error}=await sb.from("people").delete().eq("id",id);fail(error)}
-const jobFrom=r=>({id:r.id,company:r.company,role:r.role,match:r.match,pay:r.pay,where:r.location,url:r.url,resume:r.resume,why:r.why,watch:r.watch,added:r.added,custom:r.custom,active:r.active,kit:r.kit||[],linkedin:r.linkedin,prep:r.prep||null,review:r.review,foundNote:r.found_note});
+const jobFrom=r=>({id:r.id,company:r.company,role:r.role,match:r.match,pay:r.pay,where:r.location,url:r.url,resume:r.resume,why:r.why,watch:r.watch,added:r.added,custom:r.custom,active:r.active,kit:r.kit||[],linkedin:r.linkedin,prep:r.prep||null,review:r.review,foundNote:r.found_note,clientEmail:r.client_email});
 
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
@@ -566,11 +570,13 @@ function renderPeople(){
 function jobFor(p){return JOBS.find(x=>(p.company||"").toLowerCase().includes(x.company.toLowerCase()))}
 function templates(p){
   const j=jobFor(p);
-  const role=j?j.role:"support engineering",co=p.company||"your company";
+  const role=j?j.role:(MY&&MY.target_role)||"support engineering",co=p.company||"your company";
   const recruiter=/recruit|talent|sourc|hiring|people/i.test(p.position||"");
   const link=j&&j.url?`\n\nHere's the posting: ${j.url}`:"";
   const pos=p.position||"";const mgr=/manag|director|head of|lead|vp|chief/i.test(pos),eng=/engineer|developer|support|solutions|technical|architect|analyst/i.test(pos);
-  const bg="I support APIs on Google Cloud at GE Aerospace";
+  const bg=(MY&&MY.background)||"I support APIs on Google Cloud at GE Aerospace";
+  const bio=(MY&&MY.bio)||"At GE Aerospace I supported an enterprise API platform on Google Cloud Apigee, resolving 15+ tickets a week on authentication, access and configuration issues and helping cut our backlog by 30%. For 3+ years I've also been the technical contact for a client's production website.";
+  const sig=(MY&&MY.signature)||"Edwin";
   const title=pos.replace(/\s+at\s+.*$/i,"").trim();
   const cands=recruiter
     ?[`Hi ${p.first}, I'm applying for the ${role} role at ${co}. ${bg}. I'd love to connect and share my background.`,`Hi ${p.first}, I'm applying for the ${role} role at ${co}. I'd love to connect and share my background.`]
@@ -583,13 +589,14 @@ function templates(p){
   const connect=cands.find(x=>x.length<=LIM)||`Hi ${p.first}, I'd love to connect. I'm applying at ${co}.`.slice(0,LIM);
   return {
    connect,
-   lifollow:`Hi ${p.first}, just following up on my note about the ${role} role at ${co}. No worries if you're busy. If you have a minute, I'd value any advice on standing out for it.${link}\n\nThanks either way,\nEdwin`,
-   email:`Hi ${p.first},\n\nI'm applying for the ${role} role at ${co} and wanted to reach out directly.${link}\n\nAt GE Aerospace I supported an enterprise API platform on Google Cloud Apigee, resolving 15+ tickets a week on authentication, access and configuration issues and helping cut our backlog by 30%. For 3+ years I've also been the technical contact for a client's production website.\n\nI've attached my resume. ${recruiter?"If it would help, I'm happy to share more about my background. Is there anything you'd suggest I highlight?":"If you're open to it, I'd love 15 minutes to hear about the team, or any advice on standing out."}\n\nThanks for your time,\nEdwin Allen`,
+   lifollow:`Hi ${p.first}, just following up on my note about the ${role} role at ${co}. No worries if you're busy. If you have a minute, I'd value any advice on standing out for it.${link}\n\nThanks either way,\n${sig}`,
+   email:`Hi ${p.first},\n\nI'm applying for the ${role} role at ${co} and wanted to reach out directly.${link}\n\n${bio}\n\nI've attached my resume. ${recruiter?"If it would help, I'm happy to share more about my background. Is there anything you'd suggest I highlight?":"If you're open to it, I'd love 15 minutes to hear about the team, or any advice on standing out."}\n\nThanks for your time,\n${sig}`,
    message:recruiter
-     ?`Hi ${p.first}, thanks for connecting. I'm applying for the ${role} role at ${co} and sent my resume to your email as well. At GE Aerospace I resolved 15+ API tickets a week on Google Cloud Apigee and helped cut our backlog by 30%. Is there anything you'd suggest I highlight?`
+     ?`Hi ${p.first}, thanks for connecting. I'm applying for the ${role} role at ${co} and sent my resume to your email as well. ${bg}. Is there anything you'd suggest I highlight?`
      :`Hi ${p.first}, thanks for connecting. I'm applying for the ${role} role at ${co} and would love your take on the team. What do you enjoy most about working there? If you think I'd be a fit after hearing my background, I'd be grateful for a referral, but no pressure at all.`,
-   followup:`Hi ${p.first},\n\nJust following up on my note about the ${role} role. No worries if you're busy. Any quick advice would mean a lot.${link}\n\nThanks either way,\nEdwin`}}
-function subjectFor(p,key){const j=jobFor(p);return key==="followup"?`Following up: ${j?j.role:"support engineering role"}`:`${j?j.role:"Support engineering role"} at ${p.company||"your team"}: Edwin Allen`}
+   followup:`Hi ${p.first},\n\nJust following up on my note about the ${role} role. No worries if you're busy. Any quick advice would mean a lot.${link}\n\nThanks either way,\n${sig}`}}
+function subjectFor(p,key){const j=jobFor(p);const sig=(MY&&MY.signature)||"Edwin Allen";const role=(MY&&MY.target_role)||"support engineering";
+  return key==="followup"?`Following up: ${j?j.role:role+" role"}`:`${j?j.role:role.charAt(0).toUpperCase()+role.slice(1)+" role"} at ${p.company||"your team"}: ${sig}`}
 async function createDraft(p,key,btn){if(ro())return;
   if(!GMAIL||!GMAIL.connected){toast("Connect Gmail on the Today tab first");return}
   if(!GMAIL.drafts){toast("Tap Allow drafts on the Today tab first");return}
@@ -676,6 +683,58 @@ function bindCdl(v,rerender){const ps=v.querySelector("#cdlPSave");if(ps)ps.oncl
   v.querySelectorAll("[data-cdl]").forEach(b=>b.onclick=()=>{if(ro())return;const i=+b.dataset.cdl;D.remind=D.remind||{};const m=D.remind.cdl=D.remind.cdl||{};
   if(m[i])delete m[i];else m[i]=today();saveD();saveS();rerender();toast(m[i]?"Course checked off":"Unchecked")})}
 
+/* ---------- LEARN: a study curriculum built for the member's target role, with current trends in that field.
+   Content lives here in the app (researched and written by hand), not generated live. Progress is stored
+   per member in practice.remind.learn = {role, done:{"m-t":date}} (module index-topic index), synced like the CDL tracker. ---------- */
+const CURRICULA={
+  "support-engineering":{
+    title:"Technical & API Support Engineering",
+    blurb:"Built around the Jobs you're tracking: API support, platform support and technical support engineer roles.",
+    modules:[
+      {title:"APIs & auth",topics:["HTTP methods and status codes (401 vs 403, 429, 500 vs 503)","Reading API docs and testing calls in Postman or curl","REST vs. webhooks: request/response vs. push","API keys vs. OAuth, plus SSO and MFA basics"],
+       resources:[{label:"MDN: HTTP response status codes",url:"https://developer.mozilla.org/en-US/docs/Web/HTTP/Status"},{label:"Postman: API fundamentals",url:"https://learning.postman.com/docs/introduction/overview/"}]},
+      {title:"Google Cloud & Apigee",topics:["GCP basics: projects, IAM roles, service accounts","Apigee API gateway concepts: proxies, policies, rate limiting","Reading Cloud Logging and Monitoring during an incident"],
+       resources:[{label:"Google Cloud Skills Boost: Digital Transformation path",url:CDL_URL},{label:"Apigee documentation",url:"https://cloud.google.com/apigee/docs"}]},
+      {title:"Systematic debugging",topics:["A repeatable method: narrow down before you escalate","Browser DevTools: Network and Console tabs","Reading stack traces and error logs","When and how to ask for a HAR file"],
+       resources:[{label:"Chrome DevTools docs",url:"https://developer.chrome.com/docs/devtools/"}]},
+      {title:"Tickets, SLAs & communication",topics:["Ticketing tools: Jira, Zendesk, ServiceNow","Writing a bug report engineering can act on: repro steps, expected vs. actual, environment","Prioritizing by impact and urgency","Escalating without burning the relationship"],resources:[]},
+      {title:"Data & scripting for support",topics:["SQL: joins and grouping to pull ticket or usage data","Basic scripting (bash or PowerShell) for repetitive checks","Spotting a trend across many tickets, not just one"],resources:[]},
+      {title:"AI-assisted support & observability",topics:["Using an AI debugging assistant well: prompt engineering, and knowing when to double-check it","Observability basics: unified dashboards, OpenTelemetry","Why AI-powered features bring new failure modes (hallucination, prompt drift)"],
+       resources:[{label:"The technical support skills defining 2026 (Jam)",url:"https://jam.dev/blog/the-technical-customer-support-skills-that-will-define-2026/"},{label:"AI observability trends for ops teams (Rootly)",url:"https://rootly.com/sre/top-5-ai-observability-trends-shaping-2026-ops-teams-efa18"}]}
+    ],
+    trending:[
+      {t:"AI tools are augmenting support, not replacing it",why:"Prompt engineering and judgment about when to trust an AI suggestion vs. dig in yourself is now a named skill on job descriptions.",url:"https://jam.dev/blog/the-technical-customer-support-skills-that-will-define-2026/"},
+      {t:"Ops teams are moving from reactive to predictive",why:"Monitoring is shifting toward catching failures before a ticket is filed, through AI analysis of telemetry.",url:"https://rootly.com/sre/top-5-ai-observability-trends-shaping-2026-ops-teams-efa18"},
+      {t:"Tool sprawl is being consolidated",why:"Companies want one observability platform instead of five, so depth in one tool now beats breadth across many.",url:"https://rootly.com/sre/top-5-ai-observability-trends-shaping-2026-ops-teams-efa18"},
+      {t:"LLM-specific observability is a new category",why:"As more products ship AI features, teams now watch for hallucinations and prompt drift the way they used to watch for latency.",url:"https://futureagi.com/blog/llm-observability-platform-buyers-guide-2026/"},
+      {t:"Clear bug reports are still the #1 differentiator",why:"A well-documented repro (steps, expected vs. actual, environment) is what gets support engineers trusted with harder problems.",url:"https://jam.dev/blog/the-technical-customer-support-skills-that-will-define-2026/"}
+    ]
+  },
+  "general":{
+    title:"Technical interview prep",
+    blurb:"A general track while your specific role is set up. Ask your admin to tailor this to your target role.",
+    modules:[{title:"Fundamentals",topics:["Review the Practice tab's technical questions and STAR stories","Research the companies on your Jobs tab: product, recent news, how they talk about their team"],resources:[]}],
+    trending:[]
+  }
+};
+function roleSlug(r){const s=(r||"").toLowerCase();if(/support|help\s*desk|technical support|customer support/.test(s))return"support-engineering";return s?s.replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,""):"general"}
+function curriculumFor(){const slug=roleSlug(MY&&MY.target_role);return CURRICULA[slug]||CURRICULA.general}
+function learnProgress(){return(D.remind&&D.remind.learn)||{}}
+function learnHtml(){const c=curriculumFor(),prog=learnProgress();
+  const total=c.modules.reduce((n,m)=>n+m.topics.length,0);
+  const done=Object.keys(prog).filter(k=>c.modules[+k.split("-")[0]]).length;
+  return `<div class="card"><div class="spread"><h3>${esc(c.title)}</h3><span class="pill ${done===total&&total?"done":"info"}">${done} of ${total}</span></div>
+  <p class="muted">${esc(c.blurb)}</p>
+  <div class="track" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;height:12px;overflow:hidden"><div style="height:100%;width:${total?Math.round(done/total*100):0}%;background:var(--accent)"></div></div></div>
+  ${c.modules.map((m,mi)=>`<div class="card"><h3>${esc(m.title)}</h3>
+    ${m.topics.map((t,ti)=>{const k=mi+"-"+ti,on=!!prog[k];return `<button class="item" data-learn="${k}" aria-pressed="${on}"><span class="dot ${on?"done":""}"></span><span class="t">${esc(t)}</span></button>`}).join("")}
+    ${m.resources.length?`<div class="row">${m.resources.map(r=>`<a class="btn small" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.label)}</a>`).join("")}</div>`:""}</div>`).join("")}
+  ${c.trending.length?`<div class="card"><h3>Trending now in this field</h3><p class="muted">Researched once; ask your admin to refresh this if it goes stale.</p>
+    ${c.trending.map(x=>`<div class="qa"><p><b>${esc(x.t)}</b></p><p class="muted">${esc(x.why)}</p><a class="btn small" href="${esc(x.url)}" target="_blank" rel="noopener">Read more</a></div>`).join("")}</div>`:""}`}
+function bindLearn(v){v.querySelectorAll("[data-learn]").forEach(b=>b.onclick=()=>{if(ro())return;const k=b.dataset.learn;D.remind=D.remind||{};const m=D.remind.learn=D.remind.learn||{};
+  if(m[k])delete m[k];else m[k]=today();saveD();saveS();renderLearn();toast(m[k]?"Marked done":"Unchecked")})}
+function renderLearn(){const v=$("#learn");v.innerHTML=learnHtml();bindLearn(v)}
+
 /* ---------- PRACTICE ---------- */
 let current=null;
 function renderPractice(){const v=$("#practice");
@@ -739,9 +798,11 @@ function downloadIcs(){
 
 /* ---------- tabs ---------- */
 /* ---------- ADMIN ---------- */
-async function startViewAs(m){VIEWAS={user_id:m.user_id,name:m.display_name||m.email,gmail:{connected:!!m.gmail_connected,gmail_address:m.gmail_address,last_sync_at:m.gmail_last_sync},savedS:S,savedD:D};
-  S={done:{},days:[]};D={jobs:{},people:[],events:[],custom:[],remind:{time:"07:30",days:"work"}};openPerson=null;openJob=null;goTo("today");await loadAll();window.scrollTo(0,0)}
-function stopViewAs(){if(!VIEWAS)return;S=VIEWAS.savedS;D=VIEWAS.savedD;VIEWAS=null;$("#viewBar").hidden=true;openPerson=null;openJob=null;goTo("admin");loadAll();window.scrollTo(0,0)}
+async function startViewAs(m){VIEWAS={user_id:m.user_id,name:m.display_name||m.email,gmail:{connected:!!m.gmail_connected,gmail_address:m.gmail_address,last_sync_at:m.gmail_last_sync},savedS:S,savedD:D,savedMY:MY};
+  S={done:{},days:[]};D={jobs:{},people:[],events:[],custom:[],remind:{time:"07:30",days:"work"}};
+  MY={background:m.background,bio:m.bio,target_role:m.target_role,signature:m.signature,curriculum:m.curriculum};
+  openPerson=null;openJob=null;goTo("today");await loadAll();window.scrollTo(0,0)}
+function stopViewAs(){if(!VIEWAS)return;S=VIEWAS.savedS;D=VIEWAS.savedD;MY=VIEWAS.savedMY;VIEWAS=null;$("#viewBar").hidden=true;openPerson=null;openJob=null;goTo("admin");loadAll();window.scrollTo(0,0)}
 /* Admin review list: every contact grouped by company, with LinkedIn link, email and a two-tap Remove (for people who changed jobs or don't fit). */
 function peopleReview(ppl){if(!ppl.length)return `<p class="muted">No contacts yet.</p>`;
   const by={};ppl.forEach(p=>(by[p.company||"No company"]=by[p.company||"No company"]||[]).push(p));
@@ -756,11 +817,17 @@ async function renderAdmin(){
   const acc=await sb.rpc("member_accounts");
   if(acc.error){v.innerHTML=`<p class="muted">Couldn't load members.</p>`;return}
   const members=(acc.data||[]).filter(m=>m.role!=="admin");
-  if(!adminMember&&members.length)adminMember=members[0].user_id;
-  const m=members.find(x=>x.user_id===adminMember);
+  if(!adminMember&&members.length)adminMember=members[0].email;
+  const m=members.find(x=>x.email===adminMember);
   let body="",logSt=[],logPpl=[];
-  const viewCard=!m?"":`<div class="card"><div class="spread"><div><h3>See ${esc(m.display_name||"his")} view</h3><p class="muted">Today, Jobs, People, Practice and Week exactly as he sees them. Read-only.</p></div><button class="btn primary" id="viewAs">Open his view</button></div></div>`;
-  if(!m){body=`<div class="card"><h3>Waiting for Edwin</h3><p class="muted">He shows up here once he creates his account with his email on the sign-in screen.</p></div>`}
+  const profileCard=!m?"":`<div class="card"><h3>${esc(m.display_name||m.email)}'s background</h3><p class="muted">Used in his connection notes, emails and follow-ups, and picks his study curriculum on Learn.</p>
+    <label class="field" for="pBg">One-line background (connection notes, 200-char limit)<input id="pBg" value="${esc(m.background||"")}" placeholder="e.g. I support APIs on Google Cloud at Acme"></label>
+    <label class="field" for="pBio">Longer background (emails)<textarea id="pBio">${esc(m.bio||"")}</textarea></label>
+    <div class="row"><label class="field" for="pRole">Target role<input id="pRole" value="${esc(m.target_role||"")}" placeholder="e.g. support engineering"></label><label class="field" for="pSig">Signs messages as<input id="pSig" value="${esc(m.signature||"")}" placeholder="e.g. Edwin"></label></div>
+    <button class="btn primary" id="pSave">Save background</button></div>`;
+  const viewCard=(!m||!m.user_id)?"":`<div class="card"><div class="spread"><div><h3>See ${esc(m.display_name||"his")} view</h3><p class="muted">Today, Jobs, People, Practice and Week exactly as he sees them. Read-only.</p></div><button class="btn primary" id="viewAs">Open his view</button></div></div>`;
+  if(!m){body=`<div class="card"><h3>No clients yet</h3><p class="muted">Add one below.</p></div>`}
+  else if(!m.user_id){body=`<div class="card"><h3>Waiting for ${esc(m.display_name||m.email)}</h3><p class="muted">He shows up here once he creates his account with ${esc(m.email)} on the sign-in screen.</p></div>`}
   else{
     const ws=weekStart();
     const [st,ev,pp,pr,em]=await Promise.all([
@@ -779,7 +846,7 @@ async function renderAdmin(){
       <p class="muted">Practiced ${practicedWeek} ${practicedWeek===1?"day":"days"} this week · ${resolved} of ${T.length} tickets resolved</p>
       <p class="muted">Cloud Digital Leader path: ${cdlDone((pr.data&&pr.data.remind&&pr.data.remind.cdl)||{})} of ${CDL.length} courses finished${pr.data&&pr.data.remind&&pr.data.remind.cdlProfile?` · <a href="${esc(pr.data.remind.cdlProfile)}" target="_blank" rel="noopener">his profile</a>`:""}</p>
       <div class="spread"><span><b>Gmail</b> <span class="muted">${m.gmail_connected?`· ${esc(m.gmail_address||"address not shown")} · ${m.gmail_last_sync?"last checked "+new Date(m.gmail_last_sync).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}):"not checked yet"}${m.gmail_drafts?" · drafts on":""}`:"· He hasn't connected it yet"}</span></span><span class="pill ${m.gmail_connected?"done":"open"}">${m.gmail_connected?"Connected":"Not connected"}</span></div></div>
-    <div class="card"><h3>Jobs</h3>${JOBS.map(j=>{const r=stById[j.id];const s=r?r.status:"To apply";
+    <div class="card"><h3>Jobs</h3>${JOBS.filter(j=>(j.clientEmail||"").toLowerCase()===m.email.toLowerCase()).map(j=>{const r=stById[j.id];const s=r?r.status:"To apply";
       return `<div class="spread"><span><b>${esc(j.company)}</b> · ${esc(j.role)}${r&&r.applied_at?` <span class="muted">· applied ${nice(r.applied_at)}</span>`:""}</span><span class="row"><span class="pill ${s==="To apply"?"open":"done"}">${esc(s)}</span><button class="btn small" data-archive="${esc(j.id)}">Archive</button></span></div>`}).join("")||`<p class="muted">No active jobs.</p>`}</div>
     <div class="card"><h3>Outreach: review contacts</h3><p class="muted">${ppl.length} contacts · ${byStatus("To message")} to message · ${byStatus("Messaged")} messaged · ${byStatus("Replied")} replied · ${byStatus("Referral")} referrals</p>
       ${peopleReview(ppl)}
@@ -790,14 +857,19 @@ async function renderAdmin(){
       <div class="row"><label class="field" for="xFirst">First name<input id="xFirst"></label><label class="field" for="xLast">Last name<input id="xLast"></label></div>
       <div class="row"><label class="field" for="xCo">Company<input id="xCo"></label><label class="field" for="xPos">Role<input id="xPos"></label></div>
       <label class="field" for="xUrl">LinkedIn profile link<input id="xUrl" inputmode="url"></label><label class="field" for="xEmail">Work email (optional)<input id="xEmail" type="email" inputmode="email"></label><button class="btn primary" id="xAdd">Add to his People list</button></div>`}
-  v.innerHTML=`${members.length>1?`<label class="field" for="mSel">Viewing<select id="mSel">${members.map(x=>`<option value="${esc(x.user_id)}"${x.user_id===adminMember?" selected":""}>${esc(x.display_name||x.email)}</option>`).join("")}</select></label>`:""}
+  v.innerHTML=`${members.length>1?`<label class="field" for="mSel">Viewing<select id="mSel">${members.map(x=>`<option value="${esc(x.email)}"${x.email===adminMember?" selected":""}>${esc(x.display_name||x.email)}</option>`).join("")}</select></label>`:""}
   ${viewCard}
-  <div class="card"><div class="spread"><h3>To vet</h3><span class="tid">New each morning</span></div><div id="vetList"><p class="muted">Loading...</p></div></div>
+  ${m?`<div class="card"><div class="spread"><h3>To vet</h3><span class="tid">Adding for ${esc(m.display_name||m.email)}</span></div><div id="vetList"><p class="muted">Loading...</p></div></div>`:""}
   ${body}
-  <div class="card"><h3>Resumes</h3><p class="muted">Upload PDFs named after the job's resume file name. Only you and Edwin can open them.</p>
+  ${profileCard}
+  <div class="card"><h3>Add a client</h3><p class="muted">They sign up with this email and get their own jobs, contacts and background.</p>
+    <div class="row"><label class="field" for="cEmail">Email<input id="cEmail" type="email" inputmode="email"></label><label class="field" for="cName">Display name<input id="cName"></label></div>
+    <label class="field" for="cRole">Target role<input id="cRole" placeholder="e.g. support engineering"></label>
+    <button class="btn primary" id="cAdd">Add client</button></div>
+  <div class="card"><h3>Resumes</h3><p class="muted">Upload PDFs named after the job's resume file name. Shared across clients; only you and they can open them.</p>
     <div class="row"><label class="btn" for="rUp" style="cursor:pointer">Upload resume PDFs</label><input type="file" id="rUp" accept="application/pdf" multiple hidden></div>
     <div id="rList"><p class="muted">Loading...</p></div></div>
-  <div class="card"><h3>Add a vetted job</h3><p class="muted">It appears on the Jobs tab for everyone right away.</p>
+  <div class="card"><h3>Add a vetted job</h3><p class="muted">${m?`Appears on ${esc(m.display_name||m.email)}'s Jobs tab right away.`:"Pick a client above first."}</p>
     <div class="row"><label class="field" for="vCo">Company<input id="vCo"></label><label class="field" for="vRole">Role<input id="vRole"></label></div>
     <div class="row"><label class="field" for="vMatch">Match %<input id="vMatch" inputmode="numeric"></label><label class="field" for="vPay">Pay<input id="vPay"></label></div>
     <label class="field" for="vWhere">Where<input id="vWhere"></label><label class="field" for="vUrl">Posting link<input id="vUrl" inputmode="url"></label>
@@ -807,6 +879,11 @@ async function renderAdmin(){
     <button class="btn primary" id="vAdd">Add job</button></div>`;
   const va=$("#viewAs");if(va)va.onclick=()=>startViewAs(m);
   const sel=$("#mSel");if(sel)sel.onchange=e=>{adminMember=e.target.value;renderAdmin()};
+  const psv=$("#pSave");if(psv)psv.onclick=async()=>{const upd={background:$("#pBg").value.trim()||null,bio:$("#pBio").value.trim()||null,target_role:$("#pRole").value.trim()||null,signature:$("#pSig").value.trim()||null};
+    const {error}=await sb.from("members").update(upd).eq("email",m.email);if(error){fail(error);return}toast("Saved");renderAdmin()};
+  const ca=$("#cAdd");if(ca)ca.onclick=async()=>{const email=$("#cEmail").value.trim().toLowerCase();if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast("Enter a valid email");return}
+    const row={email,role:"member",display_name:$("#cName").value.trim()||null,target_role:$("#cRole").value.trim()||null};
+    const {error}=await sb.from("members").insert(row);if(error){fail(error);return}adminMember=email;toast("Client added");renderAdmin()};
   const listResumes=async()=>{const {data}=await sb.storage.from("resumes").list("",{limit:100,sortBy:{column:"name",order:"asc"}});
     const files=(data||[]).filter(f=>f.name.endsWith(".pdf"));
     /* Link uploads to jobs on their own: a job with no resume set (or whose file is gone) takes the one PDF whose name contains its company. */
@@ -826,15 +903,17 @@ async function renderAdmin(){
       ${r.why?`<p><b>Fits:</b> ${esc(r.why)}</p>`:""}${r.watch?`<p><b>Watch:</b> ${esc(r.watch)}</p>`:""}${r.found_note?`<p class="muted">${esc(r.found_note)}</p>`:""}
       <div class="row">${r.url?`<a class="btn small" href="${esc(r.url)}" target="_blank" rel="noopener">Posting</a>`:""}<button class="btn small primary" data-vet-ok="${esc(r.id)}">Approve</button><button class="btn small" data-vet-no="${esc(r.id)}">Pass</button></div></div>`).join("")
       :`<p class="muted">Nothing waiting. New matches show up here each morning.</p>`;
-    box.querySelectorAll("[data-vet-ok]").forEach(b=>b.onclick=async()=>{b.disabled=true;const {error}=await sb.from("jobs").update({active:true,review:"approved",added:today()}).eq("id",b.dataset.vetOk);if(error){fail(error);b.disabled=false;return}
-      const {data:jj}=await sb.from("jobs").select("*").eq("active",true);if(jj)JOBS=jj.map(jobFrom);toast("Approved. It's on his Jobs tab");listVet();listResumes()});
+    box.querySelectorAll("[data-vet-ok]").forEach(b=>b.onclick=async()=>{if(!m){toast("Pick a client above first");return}b.disabled=true;
+      const {error}=await sb.from("jobs").update({active:true,review:"approved",added:today(),client_email:m.email}).eq("id",b.dataset.vetOk);if(error){fail(error);b.disabled=false;return}
+      const {data:jj}=await sb.from("jobs").select("*").eq("active",true);if(jj)JOBS=jj.map(jobFrom);toast("Approved for "+(m.display_name||m.email));listVet();listResumes()});
     box.querySelectorAll("[data-vet-no]").forEach(b=>b.onclick=async()=>{b.disabled=true;const {error}=await sb.from("jobs").update({review:"declined"}).eq("id",b.dataset.vetNo);if(error){fail(error);b.disabled=false;return}toast("Passed");listVet()})};
   listVet();
   /* Changelog: what happened each day, built from dates already stored (job added, applied, reply, interview, offer, contacts added). */
   const listLog=async()=>{const box=$("#logList");if(!box||!m)return;
     const since=(()=>{const d=new Date();d.setDate(d.getDate()-30);return dkey(d)})();
-    const {data:aj}=await sb.from("jobs").select("id,company,role,added,active,review").gte("added",since);
-    const all={};(aj||[]).forEach(j=>all[j.id]=j);JOBS.forEach(j=>{if(!all[j.id])all[j.id]=j});
+    const {data:ajAll}=await sb.from("jobs").select("id,company,role,added,active,review,client_email").gte("added",since);
+    const aj=(ajAll||[]).filter(j=>(j.client_email||"").toLowerCase()===m.email.toLowerCase());
+    const all={};aj.forEach(j=>all[j.id]=j);JOBS.forEach(j=>{if(!all[j.id])all[j.id]=j});
     const name=id=>{const j=all[id];return j?`${esc(j.company)} · ${esc(j.role)}`:esc(id)};
     const ev=[];const add=(day,kind,cls,text)=>{if(day&&day>=since)ev.push({day,kind,cls,text})};
     (aj||[]).filter(j=>j.review!=="pending"&&j.review!=="declined").forEach(j=>add(j.added,"Job added","open",name(j.id)+(j.active===false?' <span class="muted">(archived)</span>':"")));
@@ -858,8 +937,8 @@ async function renderAdmin(){
     const {error}=await sb.from("people").update({email:x||null}).eq("id",peId);if(error){fail(error);return}toast(x?"Email saved":"Email removed");renderAdmin()};
   const xa=$("#xAdd");if(xa)xa.onclick=async()=>{const p={id:"a"+Date.now().toString(36),user_id:m.user_id,first:$("#xFirst").value.trim(),last:$("#xLast").value.trim(),company:$("#xCo").value.trim(),position:$("#xPos").value.trim(),url:$("#xUrl").value.trim(),email:$("#xEmail").value.trim()||null,status:"To message",source:"Assigned"};
     if(!p.first){toast("Add at least a first name");return}const {error}=await sb.from("people").insert(p);if(error){fail(error);return}toast("Added to his list");renderAdmin()};
-  $("#vAdd").onclick=async()=>{const co=$("#vCo").value.trim(),ro=$("#vRole").value.trim();if(!co||!ro){toast("Add a company and a role");return}
-    const row={id:(co+"-"+ro).toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,40)+"-"+Date.now().toString(36).slice(-4),company:co,role:ro,match:parseInt($("#vMatch").value)||null,pay:$("#vPay").value.trim()||null,location:$("#vWhere").value.trim()||null,url:$("#vUrl").value.trim()||null,resume:$("#vResume").value.trim()||null,why:$("#vWhy").value.trim()||null,watch:$("#vWatch").value.trim()||null,linkedin:$("#vLi").value.trim()||null};
+  $("#vAdd").onclick=async()=>{if(!m){toast("Add a client first");return}const co=$("#vCo").value.trim(),ro=$("#vRole").value.trim();if(!co||!ro){toast("Add a company and a role");return}
+    const row={id:(co+"-"+ro).toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,40)+"-"+Date.now().toString(36).slice(-4),company:co,role:ro,match:parseInt($("#vMatch").value)||null,pay:$("#vPay").value.trim()||null,location:$("#vWhere").value.trim()||null,url:$("#vUrl").value.trim()||null,resume:$("#vResume").value.trim()||null,why:$("#vWhy").value.trim()||null,watch:$("#vWatch").value.trim()||null,linkedin:$("#vLi").value.trim()||null,client_email:m.email};
     const {error}=await sb.from("jobs").insert(row);if(error){fail(error);return}JOBS.push(jobFrom({...row,added:today()}));toast("Job added");renderAdmin()};
 }
 
@@ -888,11 +967,11 @@ function renderAuth(mode,msg){
     else{const {error}=await sb.auth.signInWithPassword({email,password});$("#go").disabled=false;if(error){toast(error.message==="Invalid login credentials"?"Wrong email or password":error.message);return}}};
 }
 async function enter(user){
-  ME=user;const res=await sb.from("members").select("email,role,display_name");const error=res.error;
+  ME=user;const res=await sb.from("members").select("email,role,display_name,background,bio,target_role,signature,curriculum");const error=res.error;
   const data=(res.data||[]).find(r=>r.email.toLowerCase()===(user.email||"").toLowerCase());
   if(error){toast("Couldn't check your account. Try again.");return}
   if(!data){renderAuth("notmember");return}
-  ROLE=data.role;$("#who").textContent="Signed in as "+user.email;$("#who").hidden=false;
+  ROLE=data.role;MY=data;$("#who").textContent="Signed in as "+user.email;$("#who").hidden=false;
   document.querySelector('[data-tab="admin"]').hidden=ROLE!=="admin";
   showApp(true);$("#signOut").hidden=false;await loadAll();
   if(gParam==="connected"){toast("Gmail connected. Checking your inbox...");checkEmail(null)}
@@ -913,7 +992,7 @@ if(sb)sb.auth.onAuthStateChange((ev,session)=>{
 $("#signOut").onclick=()=>{if(VIEWAS){S=VIEWAS.savedS;D=VIEWAS.savedD;VIEWAS=null;$("#viewBar").hidden=true}sb&&sb.auth.signOut()};
 $("#viewExit").onclick=stopViewAs;
 
-const views={today:renderToday,jobs:renderJobs,people:renderPeople,practice:renderPractice,week:renderWeek,admin:renderAdmin};
+const views={today:renderToday,jobs:renderJobs,people:renderPeople,practice:renderPractice,learn:renderLearn,week:renderWeek,admin:renderAdmin};
 let tab="today";
 function renderAll(){views[tab]();updateBadge()}
 /* Home-screen icon badge: how many things are left on Today's list (iOS 16.4+ home-screen app, Android Chrome). */
