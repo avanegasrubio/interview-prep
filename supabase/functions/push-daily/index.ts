@@ -14,22 +14,31 @@ const json = (b: unknown, status = 200) =>
 
 const etDay = (d = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d);
 const addDays = (iso: string, n: number) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
-const VERB: Record<string, string> = { connect: "Send a LinkedIn request to", email: "Email your resume to", message: "Message", followup: "Follow up with" };
+const VERB: Record<string, string> = { connect: "Send a LinkedIn request (no note) to", email: "Email your resume to", message: "Message", followup: "Follow up with" };
 
+// Same rules as the app: the LinkedIn request goes out with no note, the LinkedIn message waits until they accept
+// (seq.accepted = date, or "skip" if they didn't), the email doesn't wait, and without an email the follow-up waits for the message.
 function nextStep(p: any) {
   if (p.status === "Replied" || p.status === "Referral") return null;
   const steps: [string, number][] = [];
   if (p.url) steps.push(["connect", 0]);
+  if (p.url) steps.push(["message", 0]);
   if (p.email) steps.push(["email", p.url ? 2 : 0]);
-  if (p.url) steps.push(["message", 3]);
   steps.push(["followup", 5]);
   const seq = p.seq ?? {};
   let prev = p.created_at ? etDay(new Date(p.created_at)) : etDay();
   for (const [k, gap] of steps) {
-    const due = addDays(prev, gap);
     const v = seq[k];
-    if (!v) return { k, due };
-    if (v !== "skip") prev = v;
+    if (v) { if (v !== "skip") prev = v; continue; }
+    if (k === "message") {
+      if (!seq.accepted || seq.accepted === "skip" || seq.connect === "skip") continue;
+      return { k, due: seq.accepted };
+    }
+    if (k === "followup" && !p.email) {
+      if (!seq.message || seq.message === "skip") continue;
+      return { k, due: addDays(seq.message, gap) };
+    }
+    return { k, due: addDays(prev, gap) };
   }
   return null;
 }

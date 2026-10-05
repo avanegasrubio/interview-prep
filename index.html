@@ -380,8 +380,8 @@ function prepHtml(j,open){const p=j.prep||GENERIC_PREP;const li=a=>(a||[]).map(x
 
 /* ---------- TODAY ---------- */
 /* One list for the day: everything due across jobs, people and practice, most urgent first, with what's already done today checked off. */
-const VERB={connect:"Send a LinkedIn request to",email:"Email your resume to",message:"Message",followup:"Follow up with"};
-const DONE_VERB={connect:"Sent a LinkedIn request to",email:"Emailed your resume to",message:"Messaged",followup:"Followed up with"};
+const VERB={connect:"Send a LinkedIn request (no note) to",email:"Email your resume to",message:"Message",followup:"Follow up with"};
+const DONE_VERB={connect:"Sent a LinkedIn request to",accepted:"Connected with",email:"Emailed your resume to",message:"Messaged",followup:"Followed up with"};
 function adviceFor(j){const k=(j.kit||[]).find(x=>/^Reach out first or apply first/i.test(x.label||""));return k?String(k.label).replace(/^Reach out first or apply first\??\s*/i,"").trim():""}
 function applyBy(j){const a=adviceFor(j),added=j.added||today();
   const m=a.match(/apply by ([A-Za-z]{3})[a-z]*\.? (\d{1,2})/i),mo=m&&["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"].indexOf(m[1].toLowerCase());
@@ -436,6 +436,7 @@ function renderToday(){
   const i=dailyIndex();
   v.innerHTML=`${nudge}
   ${todayList(didTicket)}
+  ${pendingCard(3)}
   <div id="thanksBox">${thanksCard()}</div>
   ${emailCard()}
   ${pushCard()}
@@ -446,7 +447,7 @@ function renderToday(){
     <div class="row"><label class="field" for="rTime">Study reminder time<input type="time" id="rTime" value="${esc(D.remind.time)}"></label>
     <label class="field" for="rDays">Days<select id="rDays"><option value="work"${D.remind.days==="work"?" selected":""}>Weekdays</option><option value="all"${D.remind.days==="all"?" selected":""}>Every day</option></select></label></div>
     <button class="btn primary" id="ics">Add reminders to my calendar</button></div>`;
-  renderTicket(i,$("#todayTicket"),()=>renderToday());bindGmail(v);bindPlan(v);bindPush(v);bindThanks(v);bindEmail(v);
+  renderTicket(i,$("#todayTicket"),()=>renderToday());bindGmail(v);bindPlan(v);bindPending(v,renderToday);bindPush(v);bindThanks(v);bindEmail(v);
   v.querySelectorAll("[data-fu-job]").forEach(b=>b.onclick=()=>{jstate(b.dataset.fuJob).followedUp=today();saveD();syncStatus(b.dataset.fuJob);renderAll();toast("Follow-up logged")});
   v.querySelectorAll("[data-fu-person]").forEach(b=>b.onclick=()=>{const p=D.people.find(x=>x.id===b.dataset.fuPerson);if(p){p.followedUp=today();saveD();syncPerson(p);renderAll();toast("Follow-up logged")}});
   $("#rTime").onchange=e=>{D.remind.time=e.target.value;saveD();syncPractice()};
@@ -554,21 +555,35 @@ function score(p){let s=0;const co=(p.company||"").toLowerCase(),pos=(p.position
   if(/recruit|talent|sourc|hiring/.test(pos))s+=4;
   if(/support|solution|implement|onboard|customer success|it |help ?desk|engineer/.test(pos))s+=2;return s}
 let peopleFilter="priority",openPerson=null;
+/* Requests waiting to be accepted, oldest first, each with a one-tap Accepted button. */
+function pendingCard(limit){const list=D.people.filter(pendingSince).sort((a,b)=>pendingSince(a).localeCompare(pendingSince(b)));if(!list.length)return "";
+  const shown=limit?list.slice(0,limit):list;
+  return `<div class="card"><div class="spread"><h3>Waiting to accept</h3><span class="pill info">${list.length}</span></div>
+  <p class="muted">LinkedIn tells you when someone accepts. Tap Accepted and their message moves to the top of Today.</p>
+  ${shown.map(p=>{const d=daysSince(pendingSince(p));return `<div class="spread todo"><span>${pname(p)}<br><span class="muted${d>=21?" late":""}">Sent ${nice(pendingSince(p))}${d>=21?" · over 3 weeks, withdraw it and tap Didn't accept":""}</span></span>
+    <span class="row" style="flex-wrap:nowrap"><button class="btn small primary" data-pacc="${esc(p.id)}">Accepted</button><button class="btn small" data-pno="${esc(p.id)}" title="They didn't accept">No</button></span></div>`}).join("")}
+  ${list.length>shown.length?`<button class="btn small" data-td-tab="people" data-pfilter="pending">See all ${list.length}</button>`:""}</div>`}
+function bindPending(v,rerender){
+  v.querySelectorAll("[data-pacc],[data-pno]").forEach(b=>b.onclick=()=>{if(typeof ro==="function"&&ro())return;const yes=!!b.dataset.pacc;const p=D.people.find(x=>x.id===(b.dataset.pacc||b.dataset.pno));if(!p)return;
+    markStep(p,"accepted",yes?today():"skip");rerender();toast(yes?`Nice. Message ${p.first} next`:"Logged. Moving on")});
+  v.querySelectorAll("[data-pfilter]").forEach(b=>b.addEventListener("click",()=>{peopleFilter=b.dataset.pfilter;openPerson=null;renderPeople()}))}
 function renderPeople(){
   const v=$("#people");
   if(openPerson){const p=D.people.find(x=>x.id===openPerson);if(p){renderPerson(p,v);return}openPerson=null}
   let list=[...D.people];
   if(peopleFilter==="priority")list=list.filter(p=>score(p)>=10&&p.status!=="Referral");
   if(peopleFilter==="active")list=list.filter(p=>p.status!=="To message");
+  if(peopleFilter==="pending")list=list.filter(pendingSince);
   list.sort((a,b)=>score(b)-score(a)||(a.last||"").localeCompare(b.last||""));
   const shown=list.slice(0,60);
   v.innerHTML=`${D.people.length?"":`<div class="card"><h3>Bring in your LinkedIn connections</h3>
     <ol class="muted" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px"><li>On LinkedIn: Settings, then Data privacy, then Get a copy of your data.</li><li>Pick Connections and request it. LinkedIn emails a download link, usually within minutes.</li><li>Unzip it and choose Connections.csv below.</li></ol></div>`}
   <div class="card"><div class="row"><label class="btn primary" for="csv" style="cursor:pointer">Import Connections.csv</label><input type="file" id="csv" accept=".csv,text/csv" hidden></div>
   <p class="muted">Your contacts are saved to your account. Only you and Ari can see them.</p></div>
-  <div class="row"><select id="pf" aria-label="Show"><option value="priority"${peopleFilter==="priority"?" selected":""}>At your target companies</option><option value="active"${peopleFilter==="active"?" selected":""}>Messaged or replied</option><option value="all"${peopleFilter==="all"?" selected":""}>Everyone</option></select></div>
+  ${pendingCard(peopleFilter==="pending"?0:5)}
+  <div class="row"><select id="pf" aria-label="Show"><option value="priority"${peopleFilter==="priority"?" selected":""}>At your target companies</option><option value="pending"${peopleFilter==="pending"?" selected":""}>Requests waiting to accept</option><option value="active"${peopleFilter==="active"?" selected":""}>Messaged or replied</option><option value="all"${peopleFilter==="all"?" selected":""}>Everyone</option></select></div>
   ${shown.length?shown.map(p=>{const at=JOBS.find(j=>(p.company||"").toLowerCase().includes(j.company.toLowerCase()));
-    return `<button class="item" data-person="${esc(p.id)}"><span class="dot ${p.status==="To message"?"":"done"}"></span><span class="t"><b>${esc(p.first)} ${esc(p.last)}</b><br><span class="muted">${esc(p.position||"")}${p.company?" · "+esc(p.company):""}</span></span>${(()=>{const q=(p.source==="Assigned"||Object.keys(p.seq||{}).length)&&seqState(p).next;return q&&daysSince(q.due)>=0?`<span class="pill open">Step due</span>`:at?`<span class="pill info">${esc(at.company)}</span>`:""})()}</button>`}).join("")
+    return `<button class="item" data-person="${esc(p.id)}"><span class="dot ${p.status==="To message"?"":"done"}"></span><span class="t"><b>${esc(p.first)} ${esc(p.last)}</b><br><span class="muted">${esc(p.position||"")}${p.company?" · "+esc(p.company):""}</span></span>${(()=>{const q=(p.source==="Assigned"||Object.keys(p.seq||{}).length)&&seqState(p).next;return q&&daysSince(q.due)>=0?`<span class="pill open">Step due</span>`:pendingSince(p)?`<span class="pill info">Request sent</span>`:at?`<span class="pill info">${esc(at.company)}</span>`:""})()}</button>`}).join("")
   :`<p class="muted">${D.people.length?"No one here yet. Try Everyone.":"No contacts yet."}</p>`}
   ${list.length>60?`<p class="muted">Showing 60 of ${list.length}.</p>`:""}
   <div class="card"><h3>Add someone you found</h3><div class="row"><label class="field" for="aFirst">First name<input id="aFirst"></label><label class="field" for="aLast">Last name<input id="aLast"></label></div>
@@ -576,6 +591,7 @@ function renderPeople(){
   <label class="field" for="aUrl">LinkedIn profile link<input id="aUrl" inputmode="url"></label><button class="btn" id="addP">Add person</button></div>`;
   $("#csv").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>importConnections(String(r.result));r.readAsText(f)};
   $("#pf").onchange=e=>{peopleFilter=e.target.value;renderPeople()};
+  bindPending(v,renderPeople);
   v.querySelectorAll("[data-person]").forEach(b=>b.onclick=()=>{openPerson=b.dataset.person;renderPeople();window.scrollTo(0,0)});
   $("#addP").onclick=()=>{const p={first:$("#aFirst").value.trim(),last:$("#aLast").value.trim(),company:$("#aCo").value.trim(),position:$("#aPos").value.trim(),url:$("#aUrl").value.trim(),status:"To message",source:"Added"};
     if(!p.first){toast("Add at least a first name");return}p.id="p"+Date.now().toString(36);D.people.push(p);saveD();syncPerson(p);renderPeople();toast("Person added")};
@@ -621,38 +637,57 @@ async function createDraft(p,key,btn){if(ro())return;
   if(data.url)window.open(data.url,"_blank","noopener")}
 function mailto(p,key){const subj=subjectFor(p,key);
   return `mailto:${encodeURIComponent(p.email).replace("%40","@")}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(templates(p)[key])}`}
-/* Outreach sequence: LinkedIn request, then email with resume and posting, then a LinkedIn message if they accepted, then one follow-up.
-   Steps without a LinkedIn link or email are left out. p.seq holds the date each step was done, or "skip". */
+/* Outreach sequence: LinkedIn request (no note: free accounts only get a few notes a month), then a LinkedIn message once
+   they accept, then email with resume and posting, then one follow-up. Steps without a LinkedIn link or email are left out.
+   p.seq holds the date each step was done, or "skip". p.seq.accepted is the date they accepted the request, or "skip" if they didn't.
+   The message waits for acceptance without holding up the email. Without an email, the follow-up is a LinkedIn message, so it waits for the first one. */
 function seqSteps(p){const s=[];
-  if(p.url)s.push({k:"connect",gap:0,title:"Send a LinkedIn connection request",how:"Open the profile, tap Connect, add a note, and paste this."});
+  if(p.url)s.push({k:"connect",gap:0,title:"Send a LinkedIn connection request",how:"Open the profile, tap Connect, then Send without a note. Free LinkedIn only allows a few notes a month, so your intro goes in the first message once they accept."});
+  if(p.url)s.push({k:"message",gap:0,title:"Message them on LinkedIn",how:"They accepted, so you can message them now. Paste this.",optional:true});
   if(p.email)s.push({k:"email",gap:p.url?2:0,title:"Email your resume and the job link",how:"Tap \"Put it in my Gmail drafts\" and your resume is attached for you. Read it over in Gmail and send. Sent emails check this step off on their own."});
-  if(p.url)s.push({k:"message",gap:3,title:"Message them on LinkedIn if they accepted",how:"Only if they accepted your request. If not, skip this step.",optional:true});
   s.push({k:"followup",gap:5,title:p.email?"Send one follow-up email":"Send one follow-up message",how:"Short and friendly. After this, let it go and focus on the next person."});
   return s}
 const addDays=(iso,n)=>{const d=new Date(iso+"T00:00:00");d.setDate(d.getDate()+n);return dkey(d)};
+/* Request sent, not accepted or declined yet, and no message logged. */
+const pendingSince=p=>{const q=p.seq||{};return p.url&&q.connect&&q.connect!=="skip"&&!q.accepted&&!q.message&&p.status!=="Replied"&&p.status!=="Referral"?q.connect:null};
 function seqState(p){const seq=p.seq||{};const steps=seqSteps(p);let prev=p.addedAt||today(),next=null;
-  steps.forEach(st=>{const v=seq[st.k];st.due=addDays(prev,st.gap);
-    if(v){st.done=v;prev=v==="skip"?prev:v}else if(!next){next=st}});
+  steps.forEach(st=>{const v=seq[st.k];
+    if(v){st.done=v;st.due=addDays(prev,st.gap);if(v!=="skip")prev=v;return}
+    if(st.k==="message"){
+      if(seq.accepted==="skip"){st.done="skip";st.declined=true;return}
+      if(!seq.accepted){st.wait=seq.connect&&seq.connect!=="skip"?"accept":seq.connect==="skip"?"none":"connect";if(seq.connect==="skip"){st.done="skip"}return}
+      st.due=seq.accepted}
+    else if(st.k==="followup"&&!p.email){const m=seq.message;
+      if(!m||m==="skip"){st.wait=m==="skip"||seq.accepted==="skip"||seq.connect==="skip"?"none":"message";return}
+      st.due=addDays(m,st.gap)}
+    else st.due=addDays(prev,st.gap);
+    if(!next)next=st});
   const stopped=p.status==="Replied"||p.status==="Referral";
-  return {steps,next:stopped?null:next,stopped}}
+  return {steps,next:stopped?null:next,stopped,pending:pendingSince(p)}}
 function nextDue(){const out=[];D.people.filter(p=>p.source==="Assigned"||Object.keys(p.seq||{}).length||score(p)>=10).forEach(p=>{const s=seqState(p);if(s.next&&daysSince(s.next.due)>=0)out.push({p,st:s.next})});
   return out.sort((a,b)=>((b.p.source==="Assigned")-(a.p.source==="Assigned"))||a.st.due.localeCompare(b.st.due))}
 function whenLabel(iso){const d=daysSince(iso);return d===0?"Due today":d>0?`Due ${d===1?"yesterday":d+" days ago"}`:`In ${-d} ${d===-1?"day":"days"} · ${nice(iso)}`}
 function markStep(p,k,val){p.seq={...(p.seq||{}),[k]:val};
-  if(val!=="skip"&&p.status==="To message"){p.status="Messaged";p.messagedAt=val}
+  if(val!=="skip"&&k!=="connect"&&k!=="accepted"&&p.status==="To message"){p.status="Messaged";p.messagedAt=val}
   if(k==="followup"&&val!=="skip")p.followedUp=val;
   saveD();syncPerson(p)}
 function renderPerson(p,v){
   const st=["To message","Messaged","Replied","Referral"];const t=templates(p);const j=jobFor(p);const S2=seqState(p);
   const stepHtml=(s,i)=>{const isNext=S2.next&&S2.next.k===s.k;const done=s.done&&s.done!=="skip";
-    const pill=done?`<span class="pill done">Done ${nice(s.done)}</span>`:s.done==="skip"?`<span class="pill info">Skipped</span>`:S2.stopped?`<span class="pill info">Not needed</span>`:`<span class="pill ${isNext&&daysSince(s.due)>=0?"open":"info"}">${isNext?whenLabel(s.due):"Later"}</span>`;
+    const pill=done?`<span class="pill done">Done ${nice(s.done)}</span>`:s.declined?`<span class="pill info">Didn't accept</span>`:s.done==="skip"?`<span class="pill info">Skipped</span>`:S2.stopped||s.wait==="none"?`<span class="pill info">Not needed</span>`
+      :s.wait==="accept"?`<span class="pill open">Waiting to accept</span>`:s.wait==="message"?`<span class="pill info">After your message</span>`:s.wait==="connect"?`<span class="pill info">After they accept</span>`
+      :`<span class="pill ${isNext&&daysSince(s.due)>=0?"open":"info"}">${isNext?whenLabel(s.due):"Later"}</span>`;
+    if(s.wait==="accept"&&!S2.stopped){const d=daysSince(S2.pending);
+      return `<div class="card"><div class="spread"><span class="tid">Step ${i+1}</span>${pill}</div><h3>${esc(s.title)}</h3>
+      <p class="muted">Request sent ${nice(S2.pending)}${d>0?` (${d} ${d===1?"day":"days"} ago)`:""}. LinkedIn only lets you message people once they accept. When you see they did, tap Accepted and their message is ready to send.${d>=21?" It's been 3 weeks. Withdraw the request on LinkedIn and tap Didn't accept.":""}</p>
+      <div class="row"><button class="btn primary" data-acc="1">Accepted</button><a class="btn" href="${esc(p.url)}" target="_blank" rel="noopener">Check on LinkedIn</a><button class="btn" data-acc="skip">Didn't accept</button></div></div>`}
     const tk=s.k==="followup"&&!p.email?"lifollow":s.k;
-    const body=isNext?`<p class="muted">${esc(s.how)}</p><p data-tpl="${s.k}" style="white-space:pre-line;overflow-wrap:anywhere">${esc(t[tk])}</p>${s.k==="connect"?`<p class="muted">${t.connect.length} of 200 characters, the LinkedIn limit for a connection note.</p>`:""}
+    const body=isNext?`<p class="muted">${esc(s.how)}</p>${s.k==="connect"?"":`<p data-tpl="${s.k}" style="white-space:pre-line;overflow-wrap:anywhere">${esc(t[tk])}</p>`}
       <div class="row">${s.k==="connect"||s.k==="message"||(s.k==="followup"&&!p.email)?`<a class="btn small" href="${esc(p.url)}" target="_blank" rel="noopener">Open profile</a>`:""}
       ${s.k==="email"&&j&&j.resume?`<button class="btn small" data-res="${esc(j.resume)}">Download resume</button>`:""}
       ${(s.k==="email"||s.k==="followup")&&p.email?`<button class="btn small primary" data-draft="${s.k}">Put it in my Gmail drafts</button><a class="btn small" href="${esc(mailto(p,s.k))}">Open email</a>`:""}
-      <button class="btn small" data-copy="${tk}">Copy</button></div>
-      <div class="row"><button class="btn primary" data-done="${s.k}">I sent it</button>${s.optional||s.k==="followup"?`<button class="btn" data-skip="${s.k}">Skip</button>`:""}</div>`:"";
+      ${s.k==="connect"?"":`<button class="btn small" data-copy="${tk}">Copy</button>`}</div>
+      <div class="row"><button class="btn primary" data-done="${s.k}">${s.k==="connect"?"I sent the request":"I sent it"}</button>${s.optional||s.k==="followup"?`<button class="btn" data-skip="${s.k}">Skip</button>`:""}</div>`:"";
     return `<div class="card${isNext?"":" dim"}"><div class="spread"><span class="tid">Step ${i+1}</span>${pill}</div><h3>${esc(s.title)}</h3>${body}</div>`};
   v.innerHTML=`<button class="btn" id="backP">Back to people</button>
   <article class="card"><div class="spread"><span class="tid">${esc(p.company||"")}</span><span class="pill ${p.status==="To message"?"open":"done"}">${esc(p.status)}</span></div>
@@ -661,7 +696,7 @@ function renderPerson(p,v){
   <label class="field" for="pEmail">Work email<input id="pEmail" type="email" inputmode="email" value="${esc(p.email||"")}" placeholder="Paste it here if you have it"></label>
   <label class="field" for="pStatus">Status<select id="pStatus">${st.map(x=>`<option${x===p.status?" selected":""}>${x}</option>`).join("")}</select></label></article>
   <h2>Outreach steps</h2>
-  ${S2.stopped?`<div class="nudge"><b>They replied.</b> Keep the conversation going. The remaining steps are off.</div>`:!S2.next?`<div class="nudge"><b>All steps done.</b> Nice work. Move on to the next person and let replies come to you.</div>`:""}
+  ${S2.stopped?`<div class="nudge"><b>They replied.</b> Keep the conversation going. The remaining steps are off.</div>`:!S2.next&&S2.pending?`<div class="nudge"><b>Waiting on them to accept.</b> Nothing to do here until they do. Tap Accepted below when LinkedIn tells you.</div>`:!S2.next?`<div class="nudge"><b>All steps done.</b> Nice work. Move on to the next person and let replies come to you.</div>`:""}
   ${S2.steps.map(stepHtml).join("")}
   <p class="muted">Edit each message so it sounds like you. You send everything yourself.</p>
   <button class="btn" id="delP">Remove this person</button>`;
@@ -672,8 +707,9 @@ function renderPerson(p,v){
   v.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copy(t[b.dataset.copy]));
   v.querySelectorAll("[data-res]").forEach(b=>b.onclick=()=>downloadResume(b.dataset.res,b));
   v.querySelectorAll("[data-draft]").forEach(b=>b.onclick=()=>createDraft(p,b.dataset.draft,b));
-  v.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{markStep(p,b.dataset.done,today());renderPerson(p,v);toast("Logged. Next step is lined up")});
+  v.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{const k=b.dataset.done;markStep(p,k,today());renderPerson(p,v);toast(k==="connect"?"Request logged. Tap Accepted when they accept":"Logged. Next step is lined up")});
   v.querySelectorAll("[data-skip]").forEach(b=>b.onclick=()=>{markStep(p,b.dataset.skip,"skip");renderPerson(p,v);toast("Skipped")});
+  v.querySelectorAll("[data-acc]").forEach(b=>b.onclick=()=>{const y=b.dataset.acc!=="skip";markStep(p,"accepted",y?today():"skip");renderPerson(p,v);toast(y?"Nice. Their message is ready to send":"Logged. Moving on")});
   const b2=$("#delP");b2.onclick=()=>{if(b2.dataset.armed){D.people=D.people.filter(x=>x.id!==p.id);saveD();removePerson(p.id);openPerson=null;renderPeople();toast("Removed")}else{b2.dataset.armed=1;b2.textContent="Tap again to remove"}};
 }
 
